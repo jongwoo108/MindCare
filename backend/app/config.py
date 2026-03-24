@@ -34,6 +34,10 @@ class Settings(BaseSettings):
     crisis_risk_threshold: int = 7
     expert_review_threshold: int = 6
 
+    # ChromaDB (Long-term Memory)
+    chroma_host: str = "chromadb"
+    chroma_port: int = 8000
+
     # Monitoring
     log_level: str = "INFO"
 

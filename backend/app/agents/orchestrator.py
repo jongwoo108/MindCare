@@ -10,6 +10,53 @@ from ..config import get_settings
 
 logger = structlog.get_logger(__name__)
 
+
+# ─────────────────────────────────────────
+# 장기 메모리 로더 노드
+# ─────────────────────────────────────────
+
+async def memory_loader_node(state: ConversationState) -> dict:
+    """
+    LangGraph 노드: 그래프 진입 직후 실행.
+    ChromaDB에서 현재 사용자의 관련 과거 세션 요약을 검색하여
+    long_term_context에 저장한다.
+    이미 컨텍스트가 있으면 (재진입 등) 스킵.
+    """
+    # 이미 주입된 경우 스킵
+    if state.get("long_term_context"):
+        return {}
+
+    user_id = state["session_context"].get("user_id", "")
+    if not user_id:
+        return {"long_term_context": ""}
+
+    # 마지막 사용자 메시지를 쿼리로 사용
+    last_msg = ""
+    for msg in reversed(state["messages"]):
+        if msg.type == "human":
+            last_msg = msg.content
+            break
+
+    if not last_msg:
+        return {"long_term_context": ""}
+
+    try:
+        from ..core.chroma_client import get_chroma_client
+        from ..memory.long_term_memory import LongTermMemory
+
+        client = await get_chroma_client()
+        ltm = LongTermMemory(client)
+        context = await ltm.retrieve_context(user_id=user_id, query=last_msg)
+
+        if context:
+            logger.info("ltm_context_loaded", user_id=user_id, chars=len(context))
+        return {"long_term_context": context}
+
+    except Exception as e:
+        logger.warning("ltm_load_failed", error=str(e))
+        return {"long_term_context": ""}
+
+
 # ─────────────────────────────────────────
 # 조건 함수 (Conditional Edge Functions)
 # ─────────────────────────────────────────
@@ -41,6 +88,9 @@ def build_graph():
     START
       │
       ▼
+    [memory_loader]  ← ChromaDB 이전 세션 검색
+      │
+      ▼
     [input_filter] ──blocked──► END
       │ continue
       ▼
@@ -53,6 +103,7 @@ def build_graph():
     graph = StateGraph(ConversationState)
 
     # 노드 등록
+    graph.add_node("memory_loader", memory_loader_node)
     graph.add_node("input_filter", input_filter_node)
     graph.add_node("triage", triage_node)
     graph.add_node("counseling", counseling_node)
@@ -60,7 +111,10 @@ def build_graph():
     graph.add_node("output_validator", output_validator_node)
 
     # 진입점
-    graph.set_entry_point("input_filter")
+    graph.set_entry_point("memory_loader")
+
+    # 장기 메모리 로드 후 입력 필터
+    graph.add_edge("memory_loader", "input_filter")
 
     # 입력 필터 후 분기
     graph.add_conditional_edges(

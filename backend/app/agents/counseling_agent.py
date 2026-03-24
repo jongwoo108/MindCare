@@ -26,6 +26,11 @@ async def counseling_node(state: ConversationState) -> dict:
 
     system_prompt = COUNSELING_PROMPTS.get(approach, COUNSELING_PROMPTS[_FALLBACK_APPROACH])
 
+    # 장기 메모리 컨텍스트가 있으면 system prompt 앞에 추가
+    long_term_context = state.get("long_term_context", "")
+    if long_term_context:
+        system_prompt = f"{long_term_context}\n\n---\n\n{system_prompt}"
+
     llm = ChatOpenAI(model=settings.active_model, temperature=0.7)
 
     # 최근 10개 메시지만 전달 (토큰 절약)

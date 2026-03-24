@@ -3,166 +3,194 @@
 ## 1. 전체 구조 개요
 
 ```
-[User Message]
-      │
-      ▼
-┌─────────────────┐
-│  Triage Agent   │ ← 위험도 분류 (0-10 스케일)
-│  (Risk Scorer)  │
-└────────┬────────┘
-         │
-    ┌────┴────┐
-    │         │
-  LOW/MED    HIGH (≥7)
-    │         │
-    ▼         ▼
-┌────────┐ ┌──────────────┐
-│Counsel │ │Crisis Agent  │
-│Agent   │ │(Emergency)   │
-└────┬───┘ └──────┬───────┘
-     │            │
-     ▼            ▼
-┌────────────────────────────┐
-│   Safety Guardrail Layer   │
-│   (출력 필터 + 경계 검증)    │
-└────────────┬───────────────┘
-             │
-             ▼
-      [AI Response]
+[User Message] ──WebSocket──► FastAPI Backend
+                                    │
+                              LangGraph StateGraph
+                                    │
+                        ┌───────────▼────────────┐
+                        │    memory_loader_node   │ ← ChromaDB 이전 세션 검색
+                        └───────────┬────────────┘
+                                    │
+                        ┌───────────▼────────────┐
+                        │    input_filter_node    │ ← Safety Layer 1 (입력 필터)
+                        └───────────┬────────────┘
+                                    │ blocked → END
+                        ┌───────────▼────────────┐
+                        │      triage_node        │ ← 위험도 분류 (0-10)
+                        └──────┬─────────┬────────┘
+                               │         │
+                           risk < 7   risk ≥ 7
+                               │         │
+                   ┌───────────▼─┐    ┌──▼──────────────┐
+                   │  counseling │    │   crisis_node    │
+                   │    _node    │    │ (위기 개입)        │
+                   └───────┬─────┘    └──────┬───────────┘
+                           │                 │
+                        ┌──▼─────────────────▼──┐
+                        │   output_validator    │ ← Safety Layer 2 (출력 검증)
+                        └──────────┬────────────┘
+                                   │
+                            [AI Response]
+                                   │
+                    risk ≥ 6? ─────┤
+                       │           │
+                    expert_reviews  │
+                    (pending)      │
+                       │           │
+                    WS broadcast   │
+                    → /ws/expert   │
+                                   ▼
+                              [WebSocket → User]
 ```
 
-## 2. 멀티에이전트 오케스트레이션 (LangGraph)
+## 2. LangGraph StateGraph
 
-### StateGraph 핵심 상태 스키마
+### ConversationState 스키마
 
 ```python
 class ConversationState(TypedDict):
-    messages: list[BaseMessage]
-    risk_level: int                    # 0-10
-    risk_factors: list[str]            # 감지된 위험 요인
-    therapeutic_approach: str          # "cbt" | "psychodynamic" | "supportive"
-    session_context: SessionContext    # 장기 컨텍스트
-    clinical_notes: list[ClinicalNote]
-    expert_feedback: Optional[ExpertFeedback]
+    messages: Annotated[list[BaseMessage], operator.add]  # append-only
+    risk_level: int                  # 0-10 (SAFETY_PROTOCOL.md 기준)
+    risk_factors: list[str]          # 감지된 위험 요인
+    therapeutic_approach: str        # "cbt" | "supportive" | "crisis"
+    active_agent: str                # "triage" | "counseling" | "crisis"
+    session_context: SessionContext  # session_id, user_id, message_count
     safety_flags: list[str]
     crisis_escalated: bool
+    input_blocked: bool
+    final_response: Optional[str]
+    long_term_context: Optional[str] # ChromaDB 검색 결과 (이전 세션 요약)
 ```
 
-### 에이전트별 역할
+### 노드별 역할
 
-| 에이전트 | 역할 | 활성화 조건 |
-|---------|------|-----------|
-| **Triage Agent** | 위험도 분류, 라우팅 결정 | 모든 메시지 |
-| **Counseling Agent** | CBT/정신역동/지지적 상담 | risk_level < 7 |
-| **Crisis Intervention Agent** | 위기 개입, 안전 프로토콜 | risk_level ≥ 7 |
+| 노드 | 역할 | 활성화 조건 |
+|------|------|-----------|
+| `memory_loader_node` | ChromaDB에서 의미 유사 과거 세션 검색 → `long_term_context` 설정 | 모든 메시지 (첫 번째 노드) |
+| `input_filter_node` | 입력 안전성 검사, 프롬프트 인젝션 차단 | 모든 메시지 |
+| `triage_node` | 위험도(0-10) + 치료 접근 방식 결정 | 필터 통과 시 |
+| `counseling_node` | CBT/지지적 상담 응답 생성, long_term_context 주입 | risk_level < 7 |
+| `crisis_node` | 즉각 위기 개입 응답 + 안전 자원 안내 | risk_level ≥ 7 |
+| `output_validator_node` | 출력 안전성 검증, 임상적 부적절 표현 필터 | 모든 응답 |
 
-#### Triage Agent
-- 입력 메시지에서 자살/자해/타해 관련 키워드 및 맥락 분석
-- PHQ-9, GAD-7 기반 위험도 스코어링 (0-10)
-- 이전 세션 컨텍스트를 참조한 변화 추이 감지
-- 위험 수준에 따른 라우팅 결정
-
-#### Counseling Agent
-- **CBT 기반**: 인지 왜곡 식별, 행동 활성화 제안
-- **정신역동적 접근**: 감정 반영, 패턴 탐색, 전이 관리
-- **지지적 상담**: 공감적 경청, 감정 명명, 안전한 공간 유지
-- 세션 흐름에 따른 동적 접근 방식 전환
-
-#### Crisis Intervention Agent
-- 고위험(≥7) 상황 즉시 활성화
-- 안전 프로토콜 실행 (안전 계획, 도움 요청 안내)
-- 외부 기관 연계 API 시뮬레이션 (119, 자살예방상담전화 1393)
-- 에스컬레이션 로그 기록 + 전문가 즉시 알림
-
-## 3. 메모리 아키텍처
+## 3. 메모리 3계층 아키텍처
 
 ```
-┌─────────────────────────────────────────┐
-│           Memory Architecture           │
-├─────────────┬─────────────┬─────────────┤
-│ Working     │ Session     │ Long-term   │
-│ Memory      │ Memory      │ Memory      │
-│ (Redis)     │ (PostgreSQL)│ (Vector DB) │
-│             │             │             │
-│ • 현재 대화  │ • 세션 요약  │ • 핵심 이슈  │
-│ • 감정 상태  │ • 임상 노트  │ • 치료 이력  │
-│ • 위험 플래그 │ • 목표/과제  │ • 패턴/인사이트│
-└─────────────┴─────────────┴─────────────┘
+┌─────────────────────────────────────────────────────────┐
+│                   Memory Architecture                    │
+├──────────────────┬──────────────────┬───────────────────┤
+│  Working Memory  │  Session Memory  │  Long-term Memory │
+│    (Redis)       │  (PostgreSQL)    │   (ChromaDB)      │
+│                  │                  │                   │
+│ • 현재 대화       │ • 메시지 영속화   │ • 세션 요약 벡터   │
+│   슬라이딩 윈도우  │ • 세션 메타데이터 │ • 의미 유사도 검색 │
+│   (최근 20개)     │ • expert_reviews │ • user_id 필터링  │
+│ • 위험도 추이     │                  │                   │
+│   (최근 10개)     │                  │                   │
+│ TTL: 24시간      │ TTL: 영구         │ TTL: 영구          │
+└──────────────────┴──────────────────┴───────────────────┘
 ```
 
-| 레이어 | 저장소 | 내용 | TTL |
-|-------|-------|------|-----|
-| Working Memory | Redis | 현재 대화 슬라이딩 윈도우, 실시간 감정 상태, 에이전트 체크포인트 | 세션 종료 시 |
-| Session Memory | PostgreSQL | 세션 요약, SOAP 형식 임상 노트, 치료 목표/과제 | 영구 |
-| Long-term Memory | ChromaDB | 핵심 이슈 임베딩, 치료 이력 패턴, 감정/상태 변화 추이 | 영구 |
+### 장기 메모리 흐름
+
+```
+세션 종료 (WebSocket disconnect) 또는 10쌍 메시지 도달
+  → SessionSummarizer.summarize() — LLM이 3-5문장 임상 요약 생성
+  → LongTermMemory.store_session_summary() — ChromaDB upsert
+      metadata: { user_id, session_id, risk_level, therapeutic_approach }
+
+새 세션 첫 메시지
+  → memory_loader_node: ChromaDB.query(current_message, where={user_id})
+  → cosine 유사도 top-3 검색 (distance ≤ 1.5 필터)
+  → 결과를 long_term_context로 state에 저장
+  → counseling/crisis 에이전트 system prompt 앞에 주입
+```
 
 ## 4. Safety Guardrail 시스템
 
-```python
-class SafetyGuardrail:
-    # Layer 1: 입력 필터링
-    async def filter_input(self, message: str) -> SafetyCheck:
-        """유해 콘텐츠, 프롬프트 인젝션, 경계 위반 탐지"""
-
-    # Layer 2: 출력 검증
-    async def validate_output(self, response: str, context: ConversationState) -> SafetyCheck:
-        """임상적 부적절 응답, 유해 조언, 경계 이탈 검증"""
-
-    # Layer 3: 세션 모니터링
-    async def monitor_session(self, state: ConversationState) -> SafetyAlert:
-        """위험 수준 급변, 반복적 위기 패턴, 에스컬레이션 임계값 감시"""
-```
-
-| 레이어 | 기능 |
-|-------|------|
-| 입력 필터링 | 프롬프트 인젝션 방어, 부적절 요청 차단 |
-| 출력 검증 | 임상적으로 부적절한 조언 차단 (약물 권고, 진단 금지), 경계 유지 |
-| 세션 모니터링 | 위험 수준 추이 감시, 에스컬레이션 자동 트리거 |
-| 감사 로그 | 모든 안전 이벤트 기록 (불변 로그) |
+| 레이어 | 구현 위치 | 기능 |
+|-------|----------|------|
+| Layer 1: 입력 필터 | `input_filter_node` | 프롬프트 인젝션 방어, 부적절 요청 차단 → `input_blocked=True` |
+| Layer 2: 출력 검증 | `output_validator_node` | 임상적 부적절 조언 차단 (약물 권고, 진단 금지), 경계 유지 |
+| Layer 3: 세션 모니터링 | `triage_node` + `previous_risk_levels` | 위험 수준 추이 감시, 에스컬레이션 자동 트리거 |
 
 ## 5. Expert-in-the-Loop 파이프라인
 
 ```
-[AI 응답 생성] → [Safety Check] → [임시 응답]
-                                       │
-                                  ┌────┴────┐
-                                  │         │
-                              일반 세션   고위험 세션
-                                  │         │
-                                  ▼         ▼
-                             자동 전송    전문가 대기열
-                                         │
-                                    전문가 리뷰
-                                    │        │
-                                 승인      수정
-                                    │        │
-                                    ▼        ▼
-                                  전송    수정 후 전송
-                                         │
-                                    피드백 → 에이전트 학습
+[AI 응답 생성] → [output_validator]
+                        │
+                   risk_level?
+                   │         │
+                < 6         ≥ 6
+                   │         │
+              자동 전송   expert_reviews (pending 생성)
+                             │
+                        WS broadcast
+                        → /ws/expert
+                             │
+                        전문가 대시보드
+                        (/expert 페이지)
+                        │           │
+                     approve      modify
+                        │           │
+                   status=approved  status=modified
+                   reviewed_at,     modified_content,
+                   reviewer_id      feedback_category
 ```
 
-- WebSocket 기반 실시간 전문가 대시보드
-- 고위험 세션 자동 플래깅 → 전문가 리뷰 대기열
-- 전문가 피드백이 에이전트 프롬프트에 실시간 주입
-- 피드백 데이터 축적 → 주기적 프롬프트 최적화
+### 전문가 WebSocket (`/ws/expert`)
 
-## 6. 기술 스택
+- `ExpertConnectionManager`: 연결된 counselor/admin 전원에게 브로드캐스트
+- 연결 즉시: `{"type": "connected", "pending_count": N}` 전송
+- 고위험 발생 시: `{"type": "high_risk_alert", "review_id": ..., "risk_level": ..., ...}`
+- 클라이언트 → 서버: ping/pong 유지
 
-| 영역 | 기술 |
-|-----|------|
-| LLM | OpenAI GPT-4o (gpt-4o-2024-08-06) |
-| 에이전트 오케스트레이션 | LangGraph (StateGraph 기반) |
-| 백엔드 프레임워크 | FastAPI (Python 3.12) |
-| 실시간 통신 | WebSocket (FastAPI WebSocket) |
-| 비동기 태스크 | Celery + Redis |
-| 관계형 DB | PostgreSQL 16 |
-| 캐시/상태 | Redis 7 |
-| 벡터 DB | ChromaDB |
-| ORM | SQLAlchemy 2.0 + Alembic |
-| 프론트엔드 | React 18 + TypeScript + Tailwind CSS |
-| 상태 관리 | Zustand |
-| 컨테이너 | Docker + Docker Compose |
-| 클라우드 | AWS ECS Fargate |
-| CI/CD | GitHub Actions |
-| 모니터링 | structlog + Prometheus |
+### API 엔드포인트
+
+| 메서드 | 경로 | 설명 | 권한 |
+|-------|------|------|------|
+| `GET` | `/api/v1/expert/queue?token=` | pending 리뷰 목록 (위험도 내림차순) | counselor/admin |
+| `POST` | `/api/v1/expert/feedback?token=` | approve / modify 결정 제출 | counselor/admin |
+| `WS` | `/ws/expert?token=` | 실시간 알림 수신 | counselor/admin |
+| `WS` | `/ws/chat/{session_id}?token=` | 사용자 채팅 | user |
+
+## 6. 데이터베이스 스키마
+
+```
+users
+  id (UUID PK) | email | hashed_password | name | role | is_active
+
+sessions
+  id (UUID PK) | user_id (FK) | status | therapeutic_approach
+  risk_level | message_count | last_activity_at
+
+messages
+  id (UUID PK) | session_id (FK) | role | content
+  agent_type | risk_level | metadata_json
+
+expert_reviews
+  id (UUID PK) | session_id (FK) | user_id (FK)
+  ai_response | risk_level | risk_factors | context_summary
+  status (pending/approved/modified)
+  reviewer_id (FK) | modified_content | feedback_category | feedback_note
+  reviewed_at
+```
+
+## 7. 기술 스택
+
+| 영역 | 기술 | 버전 |
+|-----|------|------|
+| LLM | OpenAI GPT-4o | gpt-4o-2024-08-06 |
+| 에이전트 오케스트레이션 | LangGraph (StateGraph) | 0.2.60 |
+| 백엔드 프레임워크 | FastAPI | 0.115.6 |
+| 실시간 통신 | WebSocket (FastAPI) | — |
+| 관계형 DB | PostgreSQL | 16 |
+| 캐시/Working Memory | Redis | 7 |
+| 벡터 DB / Long-term Memory | ChromaDB | 0.6.3 |
+| ORM | SQLAlchemy 2.0 + Alembic | — |
+| 프론트엔드 | React 18 + TypeScript + Tailwind CSS | — |
+| 상태 관리 | Zustand | — |
+| 컨테이너 | Docker + Docker Compose | — |
+| 클라우드 (예정) | AWS ECS Fargate | — |
+| CI/CD (예정) | GitHub Actions | — |
+| 구조화 로깅 | structlog | 24.4.0 |

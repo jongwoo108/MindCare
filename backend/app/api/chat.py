@@ -9,10 +9,14 @@ from ..agents.state import ConversationState
 from ..core.redis_client import get_redis
 from ..core.security import verify_token
 from ..memory.working_memory import WorkingMemory
+from ..memory.session_summarizer import SessionSummarizer
 from ..schemas.chat import WSMessageIn, WSResponseOut, WSResponseMetadata, WSRiskAlert, WSErrorOut
 
 logger = structlog.get_logger(__name__)
 router = APIRouter(tags=["chat"])
+
+# 세션 요약 트리거 임계값 (메시지 쌍 기준)
+_SUMMARY_TRIGGER_COUNT = 10
 
 
 def _dict_to_message(msg: dict):
@@ -22,6 +26,60 @@ def _dict_to_message(msg: dict):
     if role == "user":
         return HumanMessage(content=content)
     return AIMessage(content=content)
+
+
+async def _create_expert_review(
+    session_id: str,
+    user_id: str,
+    result: dict,
+    context_summary: str | None = None,
+) -> None:
+    """
+    고위험 응답에 대한 전문가 리뷰 레코드를 생성하고
+    연결된 전문가에게 실시간 알림을 브로드캐스트한다.
+    """
+    try:
+        from ..core.database import AsyncSessionFactory
+        from ..models.expert_review import ExpertReview
+        from .expert_ws_manager import expert_ws_manager
+        import uuid as _uuid
+
+        review_id = _uuid.uuid4()
+        async with AsyncSessionFactory() as db:
+            review = ExpertReview(
+                id=review_id,
+                session_id=_uuid.UUID(session_id),
+                user_id=_uuid.UUID(user_id),
+                ai_response=result.get("final_response", ""),
+                risk_level=result.get("risk_level", 0),
+                risk_factors=result.get("risk_factors", []),
+                context_summary=context_summary,
+                status="pending",
+            )
+            db.add(review)
+            await db.commit()
+
+        # 연결된 전문가 전원에게 실시간 알림
+        await expert_ws_manager.broadcast_high_risk({
+            "type": "high_risk_alert",
+            "review_id": str(review_id),
+            "session_id": session_id,
+            "user_id": user_id,
+            "risk_level": result.get("risk_level", 0),
+            "risk_factors": result.get("risk_factors", []),
+            "ai_response": result.get("final_response", ""),
+            "context_summary": context_summary,
+        })
+
+        logger.info(
+            "expert_review_created",
+            review_id=str(review_id),
+            session_id=session_id,
+            risk_level=result.get("risk_level", 0),
+        )
+
+    except Exception as e:
+        logger.error("expert_review_error", session_id=session_id, error=str(e))
 
 
 async def _persist_messages(session_id: str, user_content: str, result: dict) -> None:
@@ -79,6 +137,50 @@ async def _persist_messages(session_id: str, user_content: str, result: dict) ->
         logger.error("persist_messages_error", session_id=session_id, error=str(e))
 
 
+async def _save_session_to_ltm(
+    user_id: str,
+    session_id: str,
+    memory: WorkingMemory,
+    peak_risk: int,
+    therapeutic_approach: str,
+) -> None:
+    """
+    세션 요약을 생성하여 ChromaDB(장기 메모리)에 저장한다.
+    WebSocket disconnect 또는 메시지 임계값 도달 시 호출.
+    """
+    try:
+        messages = await memory.get_messages(session_id)
+        if len(messages) < 4:
+            return
+
+        summarizer = SessionSummarizer()
+        summary = await summarizer.summarize(
+            messages=messages,
+            risk_level=peak_risk,
+            therapeutic_approach=therapeutic_approach,
+        )
+        if not summary:
+            return
+
+        from ..core.chroma_client import get_chroma_client
+        from ..memory.long_term_memory import LongTermMemory
+
+        client = await get_chroma_client()
+        ltm = LongTermMemory(client)
+        await ltm.store_session_summary(
+            user_id=user_id,
+            session_id=session_id,
+            summary=summary,
+            risk_level=peak_risk,
+            therapeutic_approach=therapeutic_approach,
+            message_count=len(messages),
+        )
+        logger.info("ltm_session_saved", session_id=session_id, user_id=user_id)
+
+    except Exception as e:
+        logger.error("ltm_save_error", session_id=session_id, error=str(e))
+
+
 @router.websocket("/ws/chat/{session_id}")
 async def chat_websocket(
     websocket: WebSocket,
@@ -98,6 +200,11 @@ async def chat_websocket(
     redis = await get_redis()
     memory = WorkingMemory(redis)
     graph = get_graph()
+
+    # 세션 추적 변수
+    peak_risk = 0
+    last_approach = "supportive"
+    message_pair_count = 0
 
     logger.info("ws_connected", session_id=session_id, user_id=payload.sub)
 
@@ -142,10 +249,18 @@ async def chat_websocket(
                 "crisis_escalated": False,
                 "input_blocked": False,
                 "final_response": None,
+                "long_term_context": None,  # memory_loader_node가 채움
             }
 
             # LangGraph 실행
             result = await graph.ainvoke(state)
+
+            # 세션 최고 위험도 추적
+            current_risk = result.get("risk_level", 0)
+            if current_risk > peak_risk:
+                peak_risk = current_risk
+            last_approach = result.get("therapeutic_approach", "supportive")
+            message_pair_count += 1
 
             # 위기 상황 알림 먼저 전송 (SAFETY_PROTOCOL.md Step 3-4)
             if result.get("crisis_escalated"):
@@ -189,6 +304,32 @@ async def chat_websocket(
                 _persist_messages(session_id, msg_in.content, result)
             )
 
+            # 고위험 시 전문가 리뷰 레코드 생성 + WS 알림 (비블로킹)
+            from ..config import get_settings
+            _settings = get_settings()
+            if current_risk >= _settings.expert_review_threshold:
+                asyncio.create_task(
+                    _create_expert_review(
+                        session_id=session_id,
+                        user_id=payload.sub,
+                        result=result,
+                        context_summary=result.get("long_term_context"),
+                    )
+                )
+
+            # 메시지 임계값 도달 시 중간 요약 → 장기 메모리 저장 (비블로킹)
+            if message_pair_count % _SUMMARY_TRIGGER_COUNT == 0:
+                asyncio.create_task(
+                    _save_session_to_ltm(
+                        user_id=payload.sub,
+                        session_id=session_id,
+                        memory=memory,
+                        peak_risk=peak_risk,
+                        therapeutic_approach=last_approach,
+                    )
+                )
+                logger.info("ltm_mid_session_trigger", session_id=session_id, pairs=message_pair_count)
+
             logger.info(
                 "message_processed",
                 session_id=session_id,
@@ -198,6 +339,16 @@ async def chat_websocket(
 
     except WebSocketDisconnect:
         logger.info("ws_disconnected", session_id=session_id)
+        # 세션 종료 시 장기 메모리 저장 (비블로킹)
+        asyncio.create_task(
+            _save_session_to_ltm(
+                user_id=payload.sub,
+                session_id=session_id,
+                memory=memory,
+                peak_risk=peak_risk,
+                therapeutic_approach=last_approach,
+            )
+        )
     except Exception as e:
         logger.error("ws_error", session_id=session_id, error=str(e))
         try:

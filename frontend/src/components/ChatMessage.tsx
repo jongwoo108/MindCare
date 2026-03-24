@@ -1,4 +1,5 @@
 import type { Message } from '../store/chatStore'
+import RiskBadge from './RiskBadge'
 
 interface Props {
   msg: Message
@@ -26,14 +27,12 @@ export default function ChatMessage({ msg }: Props) {
       <div className={`max-w-[75%] space-y-1 ${isUser ? 'items-end' : 'items-start'} flex flex-col`}>
         {/* 에이전트 레이블 */}
         {!isUser && msg.agent && (
-          <span className="text-xs text-slate-400 px-1">
-            {agentLabel[msg.agent] ?? msg.agent}
+          <div className="flex items-center gap-2 px-1">
+            <span className="text-xs text-slate-400">{agentLabel[msg.agent] ?? msg.agent}</span>
             {msg.risk_level !== undefined && msg.risk_level > 0 && (
-              <span className={`ml-2 font-medium ${msg.risk_level >= 7 ? 'text-red-500' : 'text-slate-400'}`}>
-                위험도 {msg.risk_level}
-              </span>
+              <RiskBadge level={msg.risk_level} />
             )}
-          </span>
+          </div>
         )}
 
         {/* 말풍선 */}

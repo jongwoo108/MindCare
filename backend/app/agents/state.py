@@ -32,3 +32,6 @@ class ConversationState(TypedDict):
 
     # Safety Guardrail 통과 후 최종 응답
     final_response: Optional[str]
+
+    # 장기 메모리 컨텍스트 (ChromaDB에서 검색한 이전 세션 요약)
+    long_term_context: Optional[str]

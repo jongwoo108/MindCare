@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .config import get_settings
 from .core.database import engine
 from .core.redis_client import close_redis
+from .core.chroma_client import get_chroma_client, close_chroma
 from .models.base import Base
 from .api.router import api_router
 from .api.chat import router as chat_router
@@ -24,6 +25,16 @@ async def lifespan(app: FastAPI):
             await conn.run_sync(Base.metadata.create_all)
         logger.info("db_tables_created")
 
+    # ChromaDB 연결 + 컬렉션 초기화
+    try:
+        from .memory.long_term_memory import LongTermMemory
+        chroma = await get_chroma_client()
+        ltm = LongTermMemory(chroma)
+        await ltm._get_collection()
+        logger.info("chroma_collection_ready")
+    except Exception as e:
+        logger.warning("chroma_unavailable", error=str(e))
+
     # LangGraph 그래프 사전 컴파일 (첫 요청 지연 방지)
     from .agents.orchestrator import get_graph
     get_graph()
@@ -33,6 +44,7 @@ async def lifespan(app: FastAPI):
     # 종료 정리
     await engine.dispose()
     await close_redis()
+    await close_chroma()
     logger.info("shutdown")
 
 
