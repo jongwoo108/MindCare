@@ -18,6 +18,7 @@ def _make_state(content: str = "", response: str = "") -> ConversationState:
         crisis_escalated=False,
         input_blocked=False,
         final_response=response or None,
+        long_term_context=None,
     )
 
 

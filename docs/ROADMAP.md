@@ -61,11 +61,11 @@
 
 - [x] Docker Compose 풀 스택 구성 (Backend / PostgreSQL / Redis / ChromaDB)
 - [ ] AWS ECS 배포 구성 (또는 로컬 K8s)
-- [ ] CI/CD 파이프라인 (GitHub Actions)
+- [x] CI/CD 파이프라인 (GitHub Actions)
 - [x] API 문서화 (OpenAPI/Swagger — `/docs`)
 - [x] 아키텍처 문서 (`docs/`)
 - [ ] 데모 시나리오 준비 (정상, 위기, 전문가 개입)
-- [ ] README 포트폴리오 정리
+- [x] README 포트폴리오 정리
 
 **산출물**: Docker 한 줄로 실행 가능한 풀 스택 + 데모 영상
 
