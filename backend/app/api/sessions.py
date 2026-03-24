@@ -6,7 +6,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.database import get_db
 from ..core.security import verify_token, TokenPayload
 from ..models.session import Session
+from ..models.clinical_note import ClinicalNote
 from ..schemas.session import SessionResponse, SessionListResponse
+from ..schemas.clinical_note import ClinicalNoteResponse, ClinicalNotesListResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
@@ -83,3 +85,37 @@ async def get_session(
     if not session:
         raise HTTPException(status_code=404, detail="세션을 찾을 수 없습니다.")
     return SessionResponse.model_validate(session)
+
+
+@router.get("/{session_id}/clinical-notes", response_model=ClinicalNotesListResponse)
+async def get_clinical_notes(
+    session_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: TokenPayload = Depends(get_current_user),
+):
+    """
+    세션 임상 노트 조회.
+    상담사/관리자: 모든 세션 조회 가능.
+    일반 사용자: 본인 세션만 조회 가능.
+    """
+    # 세션 소유권 확인 (상담사/관리자는 모든 세션 접근 허용)
+    if current_user.role not in ("counselor", "admin"):
+        session_check = await db.execute(
+            select(Session).where(
+                Session.id == uuid.UUID(session_id),
+                Session.user_id == uuid.UUID(current_user.sub),
+            )
+        )
+        if not session_check.scalar_one_or_none():
+            raise HTTPException(status_code=404, detail="세션을 찾을 수 없습니다.")
+
+    result = await db.execute(
+        select(ClinicalNote)
+        .where(ClinicalNote.session_id == uuid.UUID(session_id))
+        .order_by(ClinicalNote.created_at.desc())
+    )
+    notes = result.scalars().all()
+
+    return ClinicalNotesListResponse(
+        notes=[ClinicalNoteResponse.from_orm_note(n) for n in notes]
+    )

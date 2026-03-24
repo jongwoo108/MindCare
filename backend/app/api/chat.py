@@ -137,6 +137,59 @@ async def _persist_messages(session_id: str, user_content: str, result: dict) ->
         logger.error("persist_messages_error", session_id=session_id, error=str(e))
 
 
+async def _generate_soap_note(
+    user_id: str,
+    session_id: str,
+    memory: WorkingMemory,
+    peak_risk: int,
+    therapeutic_approach: str,
+) -> None:
+    """
+    세션 대화를 분석하여 SOAP 형식 임상 노트를 생성하고 PostgreSQL에 저장한다.
+    WebSocket disconnect 시 호출.
+    """
+    try:
+        messages = await memory.get_messages(session_id)
+        if len(messages) < 4:
+            return
+
+        from ..memory.soap_generator import SOAPGenerator
+        from ..core.database import AsyncSessionFactory
+        from ..models.clinical_note import ClinicalNote
+        import uuid as _uuid
+
+        generator = SOAPGenerator()
+        result = await generator.generate(
+            messages=messages,
+            risk_level=peak_risk,
+            therapeutic_approach=therapeutic_approach,
+            message_count=len(messages),
+        )
+        if not result:
+            return
+
+        async with AsyncSessionFactory() as db:
+            note = ClinicalNote(
+                id=_uuid.uuid4(),
+                session_id=_uuid.UUID(session_id),
+                user_id=_uuid.UUID(user_id),
+                subjective=result.subjective,
+                objective=result.objective,
+                assessment=result.assessment,
+                plan=result.plan,
+                risk_level=peak_risk,
+                therapeutic_approach=therapeutic_approach,
+                message_count=len(messages),
+            )
+            db.add(note)
+            await db.commit()
+
+        logger.info("soap_note_saved", session_id=session_id, user_id=user_id)
+
+    except Exception as e:
+        logger.error("soap_note_error", session_id=session_id, error=str(e))
+
+
 async def _save_session_to_ltm(
     user_id: str,
     session_id: str,
@@ -339,9 +392,18 @@ async def chat_websocket(
 
     except WebSocketDisconnect:
         logger.info("ws_disconnected", session_id=session_id)
-        # 세션 종료 시 장기 메모리 저장 (비블로킹)
+        # 세션 종료 시 장기 메모리 저장 + SOAP 노트 생성 (비블로킹, 병렬)
         asyncio.create_task(
             _save_session_to_ltm(
+                user_id=payload.sub,
+                session_id=session_id,
+                memory=memory,
+                peak_risk=peak_risk,
+                therapeutic_approach=last_approach,
+            )
+        )
+        asyncio.create_task(
+            _generate_soap_note(
                 user_id=payload.sub,
                 session_id=session_id,
                 memory=memory,
