@@ -1,15 +1,15 @@
 import structlog
 import chromadb
-from chromadb import AsyncHttpClient
+from typing import Optional, Any
 
 from ..config import get_settings
 
 logger = structlog.get_logger(__name__)
 
-_client: AsyncHttpClient | None = None
+_client: Optional[Any] = None
 
 
-async def get_chroma_client() -> AsyncHttpClient:
+async def get_chroma_client() -> Any:
     """ChromaDB 비동기 HTTP 클라이언트 싱글톤."""
     global _client
     if _client is None:

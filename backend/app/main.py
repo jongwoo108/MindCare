@@ -7,7 +7,6 @@ from .config import get_settings
 from .core.database import engine
 from .core.redis_client import close_redis
 from .core.chroma_client import get_chroma_client, close_chroma
-from .models.base import Base
 from .api.router import api_router
 from .api.chat import router as chat_router
 
@@ -18,12 +17,6 @@ settings = get_settings()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("startup", env=settings.app_env, model=settings.active_model)
-
-    # 개발 환경: 자동 테이블 생성 (프로덕션은 Alembic 사용)
-    if settings.app_env == "development":
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
-        logger.info("db_tables_created")
 
     # ChromaDB 연결 + 컬렉션 초기화
     try:

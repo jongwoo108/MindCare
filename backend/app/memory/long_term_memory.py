@@ -16,7 +16,7 @@ ChromaDB 기반 장기 메모리 (Long-term Memory).
 """
 import structlog
 from datetime import datetime, timezone
-from chromadb import AsyncHttpClient
+from typing import Any
 
 logger = structlog.get_logger(__name__)
 
@@ -25,7 +25,7 @@ _N_RESULTS = 3  # 한 번에 가져올 과거 세션 수
 
 
 class LongTermMemory:
-    def __init__(self, client: AsyncHttpClient) -> None:
+    def __init__(self, client: Any) -> None:
         self._client = client
         self._collection = None
 
@@ -33,7 +33,6 @@ class LongTermMemory:
         if self._collection is None:
             self._collection = await self._client.get_or_create_collection(
                 name=_COLLECTION_NAME,
-                metadata={"hnsw:space": "cosine"},
             )
         return self._collection
 

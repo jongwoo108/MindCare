@@ -18,7 +18,7 @@
 
 ---
 
-## Phase 2: 안전성 & 메모리 고도화 (Week 3-4) 🔄 진행 중
+## Phase 2: 안전성 & 메모리 고도화 (Week 3-4) ✅ 완료
 
 **목표**: 임상적 신뢰성을 갖춘 안전장치 + 다층 메모리
 
@@ -29,21 +29,21 @@
 - [x] 세션 자동 요약 (`session_summarizer.py` — LLM 기반 3-5문장 요약)
 - [x] 장기 메모리 (ChromaDB) + 의미 유사도 컨텍스트 검색
 - [x] 임상 노트 자동 생성 (SOAP 형식)
-- [ ] 감사 로그 시스템
-- [ ] 데이터 암호화 (AES-256 저장, TLS 전송)
+- [ ] 감사 로그 시스템 (포트폴리오 범위 외)
+- [ ] 데이터 암호화 (AES-256 저장, TLS 전송 — 프로덕션 배포 시 적용)
 
 **산출물**: 다회기 대화에서 맥락을 유지하며 안전하게 응답 ✅ (시나리오 4 동작)
 
 ---
 
-## Phase 3: Expert-in-the-loop + 프론트엔드 (Week 5-6) 🔄 진행 중
+## Phase 3: Expert-in-the-loop + 프론트엔드 (Week 5-6) ✅ 완료
 
 **목표**: 전문가 피드백 루프 + 사용자/전문가 UI
 
 ### 태스크
 
 - [x] 전문가 리뷰 대기열 시스템 (`expert_reviews` 테이블 + REST API)
-- [ ] 피드백 → 에이전트 프롬프트 실시간 반영
+- [ ] 피드백 → 에이전트 프롬프트 실시간 반영 (Phase 4 이후)
 - [x] React 채팅 UI (사용자용) — 로그인/회원가입/WebSocket 채팅
 - [x] 전문가 대시보드 UI — 대기열 조회 + 승인/수정 인터페이스
 - [x] 위험도 시각 표시 (RiskBadge 컴포넌트 — 채팅 UI + 전문가 대시보드)
@@ -53,19 +53,20 @@
 
 ---
 
-## Phase 4: 인프라 & 폴리싱 (Week 7-8)
+## Phase 4: 인프라 & 폴리싱 (Week 7-8) 🔄 진행 중
 
 **목표**: 배포 가능한 프로토타입 + 문서화
 
 ### 태스크
 
 - [x] Docker Compose 풀 스택 구성 (Backend / PostgreSQL / Redis / ChromaDB)
-- [ ] AWS ECS 배포 구성 (또는 로컬 K8s)
 - [x] CI/CD 파이프라인 (GitHub Actions)
 - [x] API 문서화 (OpenAPI/Swagger — `/docs`)
 - [x] 아키텍처 문서 (`docs/`)
-- [ ] 데모 시나리오 준비 (정상, 위기, 전문가 개입)
 - [x] README 포트폴리오 정리
+- [x] 전체 기능 통합 테스트 (4개 시나리오 검증 완료)
+- [ ] AWS ECS 배포 구성 (또는 로컬 K8s)
+- [ ] 데모 시나리오 영상 녹화
 
 **산출물**: Docker 한 줄로 실행 가능한 풀 스택 + 데모 영상
 
@@ -125,6 +126,6 @@
 | Long-term Memory (ChromaDB) | ✅ 완료 | 세션 요약 + 의미 검색 |
 | Expert-in-the-loop | ✅ 완료 | 대기열 + WS 알림 + 대시보드 |
 | 전문가 대시보드 UI | ✅ 완료 | 승인/수정 인터페이스 |
-| SOAP 임상 노트 | 🔜 다음 | Phase 2 마무리 |
+| SOAP 임상 노트 | ✅ 완료 | 세션 종료 시 자동 생성 + PostgreSQL 저장 |
+| CI/CD | ✅ 완료 | GitHub Actions (ruff + pytest + tsc + docker build) |
 | AWS 배포 | 🔜 다음 | Phase 4 |
-| CI/CD | 🔜 다음 | Phase 4 |

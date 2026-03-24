@@ -10,7 +10,8 @@ export function useChat(sessionId: string | null) {
   const connect = useCallback(() => {
     if (!sessionId || !token || ws.current?.readyState === WebSocket.OPEN) return
 
-    const url = `ws://localhost:8080/ws/chat/${sessionId}?token=${token}`
+    const proto = window.location.protocol === 'https:' ? 'wss' : 'ws'
+    const url = `${proto}://${window.location.host}/ws/chat/${sessionId}?token=${token}`
     ws.current = new WebSocket(url)
 
     ws.current.onopen = () => setConnected(true)
