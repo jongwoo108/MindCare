@@ -8,6 +8,7 @@ import { useChat } from '../hooks/useChat'
 import ChatMessage from '../components/ChatMessage'
 import AssessmentModal from '../components/AssessmentModal'
 import FollowUpModal from '../components/FollowUpModal'
+import FollowUpInviteCard from '../components/FollowUpInviteCard'
 import MatchNotification from '../components/MatchNotification'
 
 export default function ChatPage() {
@@ -17,10 +18,18 @@ export default function ChatPage() {
   const { send } = useChat(sessionId)
   const [input, setInput] = useState('')
   const bottomRef = useRef<HTMLDivElement>(null)
+
   const [showAssessment, setShowAssessment] = useState(false)
   const [isGreeting, setIsGreeting] = useState(false)
+
+  // 채팅에 표시되는 심화 검사 초대 카드 (현재 항목)
+  const [followUpInvite, setFollowUpInvite] = useState<FollowUpRecommendation | null>(null)
+  // 남은 심화 검사 큐 (초대 카드에서 시작 누른 후 모달로 넘어갈 때 사용)
   const [followUpQueue, setFollowUpQueue] = useState<FollowUpRecommendation[]>([])
-  const [showMatchNotification, setShowMatchNotification] = useState(true)
+  // 모달 표시 여부 (사용자가 "시작하기" 눌렀을 때만 true)
+  const [followUpModalOpen, setFollowUpModalOpen] = useState(false)
+
+  const [showMatchNotification, setShowMatchNotification] = useState(false)
 
   useEffect(() => {
     sessionsApi.create().then((res) => {
@@ -30,10 +39,23 @@ export default function ChatPage() {
     return () => reset()
   }, [])
 
+  // 심화 검사 큐에서 다음 초대 카드를 꺼내는 헬퍼
+  const advanceQueue = useCallback((queue: FollowUpRecommendation[]) => {
+    const next = queue.slice(1)
+    setFollowUpQueue(next)
+    if (next.length > 0) {
+      setFollowUpInvite(next[0])
+    } else {
+      setFollowUpInvite(null)
+      setShowMatchNotification(true)
+    }
+  }, [])
+
   const handleAssessmentComplete = useCallback(async () => {
     setShowAssessment(false)
     if (!sessionId) return
     setIsGreeting(true)
+    let followUps: FollowUpRecommendation[] = []
     try {
       const res = await assessmentApi.greeting(sessionId)
       addMessage({
@@ -43,9 +65,7 @@ export default function ChatPage() {
         agent: 'counseling',
         timestamp: new Date(),
       })
-      if (res.data.follow_ups?.length > 0) {
-        setFollowUpQueue(res.data.follow_ups)
-      }
+      followUps = res.data.follow_ups ?? []
     } catch {
       addMessage({
         id: crypto.randomUUID(),
@@ -54,14 +74,33 @@ export default function ChatPage() {
         agent: 'counseling',
         timestamp: new Date(),
       })
-    } finally {
-      setIsGreeting(false)
+    }
+    setIsGreeting(false)
+
+    if (followUps.length > 0) {
+      setFollowUpQueue(followUps)
+      setFollowUpInvite(followUps[0])  // 채팅 카드로 표시 (모달 아님)
+    } else {
+      setShowMatchNotification(true)
     }
   }, [sessionId, addMessage])
 
+  // 사용자가 초대 카드에서 "검사 시작하기" 클릭
+  const handleInviteStart = useCallback(() => {
+    setFollowUpInvite(null)
+    setFollowUpModalOpen(true)
+  }, [])
+
+  // 사용자가 초대 카드에서 "건너뛸게요" 클릭
+  const handleInviteSkip = useCallback(() => {
+    setFollowUpInvite(null)
+    advanceQueue(followUpQueue)
+  }, [followUpQueue, advanceQueue])
+
+  // 심화 검사 모달 완료
   const handleFollowUpComplete = useCallback((updatedRisk: number) => {
+    setFollowUpModalOpen(false)
     const current = followUpQueue[0]
-    setFollowUpQueue(q => q.slice(1))
     const typeLabels: Record<string, string> = {
       crisis_detailed: '안전 확인 검사',
       phq_extended: '우울 심화 검사',
@@ -79,15 +118,18 @@ export default function ChatPage() {
       agent: 'counseling',
       timestamp: new Date(),
     })
-  }, [followUpQueue, addMessage])
+    advanceQueue(followUpQueue)
+  }, [followUpQueue, addMessage, advanceQueue])
 
+  // 심화 검사 모달에서 "건너뛰기" (모달 내부 버튼)
   const handleFollowUpSkip = useCallback(() => {
-    setFollowUpQueue(q => q.slice(1))
-  }, [])
+    setFollowUpModalOpen(false)
+    advanceQueue(followUpQueue)
+  }, [followUpQueue, advanceQueue])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, isThinking, isGreeting])
+  }, [messages, isThinking, isGreeting, followUpInvite])
 
   const handleSend = () => {
     const content = input.trim()
@@ -96,17 +138,21 @@ export default function ChatPage() {
     setInput('')
   }
 
+  const handleDismissMatch = useCallback(() => setShowMatchNotification(false), [])
+
   const handleLogout = () => {
     logout()
     navigate('/login')
   }
+
+  const inputBlocked = showAssessment || followUpModalOpen || !!followUpInvite
 
   return (
     <div className="flex flex-col h-screen bg-[#0d1420]">
       {showAssessment && sessionId && (
         <AssessmentModal sessionId={sessionId} onComplete={handleAssessmentComplete} />
       )}
-      {!showAssessment && !isGreeting && followUpQueue.length > 0 && sessionId && (
+      {followUpModalOpen && followUpQueue.length > 0 && sessionId && (
         <FollowUpModal
           sessionId={sessionId}
           recommendation={followUpQueue[0]}
@@ -114,8 +160,8 @@ export default function ChatPage() {
           onSkip={handleFollowUpSkip}
         />
       )}
-      {!showAssessment && followUpQueue.length === 0 && showMatchNotification && (
-        <MatchNotification onDismiss={() => setShowMatchNotification(false)} />
+      {!showAssessment && !followUpInvite && !followUpModalOpen && showMatchNotification && (
+        <MatchNotification onDismiss={handleDismissMatch} />
       )}
 
       {/* 헤더 */}
@@ -150,7 +196,16 @@ export default function ChatPage() {
           <ChatMessage key={msg.id} msg={msg} />
         ))}
 
-        {/* 타이핑 인디케이터 (greeting / thinking 공용) */}
+        {/* 심화 검사 초대 카드 — 채팅 흐름 안에 자연스럽게 삽입 */}
+        {followUpInvite && (
+          <FollowUpInviteCard
+            recommendation={followUpInvite}
+            onStart={handleInviteStart}
+            onSkip={handleInviteSkip}
+          />
+        )}
+
+        {/* 타이핑 인디케이터 */}
         {(isGreeting || isThinking) && (
           <div className="flex gap-3">
             <div className="w-8 h-8 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 flex items-center justify-center text-sm shrink-0 mt-1">
@@ -187,12 +242,12 @@ export default function ChatPage() {
             }}
             placeholder="오늘 어떤 이야기를 나눠볼까요..."
             rows={1}
-            disabled={!isConnected || showAssessment || followUpQueue.length > 0}
+            disabled={!isConnected || inputBlocked}
             className="flex-1 resize-none px-4 py-2.5 bg-[#1a2535] border border-white/[0.08] rounded-xl text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-indigo-500/40 focus:ring-1 focus:ring-indigo-500/20 transition-colors disabled:opacity-30"
           />
           <button
             onClick={handleSend}
-            disabled={!isConnected || isThinking || !input.trim() || showAssessment || followUpQueue.length > 0}
+            disabled={!isConnected || isThinking || !input.trim() || inputBlocked}
             className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-30 text-white rounded-xl text-sm font-medium transition-colors shrink-0"
           >
             전송

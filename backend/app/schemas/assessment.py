@@ -99,7 +99,7 @@ def recommend_followups(phq: int, gad: int, suicide_flag: bool, answers: dict) -
     if suicide_flag or answers.get(SUICIDE_KEY, 0) >= 1:
         recs.append({
             "type": "crisis_detailed",
-            "reason": "자해 또는 자살 관련 응답이 있어 더 자세한 확인이 필요합니다.",
+            "reason": "조금 더 세심하게 마음 상태를 살펴보고 싶어서요. 편하게 답해 주셔도 괜찮아요.",
             "priority": 1,
         })
 
@@ -107,7 +107,7 @@ def recommend_followups(phq: int, gad: int, suicide_flag: bool, answers: dict) -
     if phq >= 5:
         recs.append({
             "type": "phq_extended",
-            "reason": f"우울 관련 점수({phq}/15)를 더 정확히 파악하기 위해 추가 문항이 필요합니다.",
+            "reason": "요즘 힘드셨던 부분을 조금 더 이야기 나눠봐도 될까요? 몇 가지만 더 여쭤볼게요.",
             "priority": 2,
         })
 
@@ -115,7 +115,7 @@ def recommend_followups(phq: int, gad: int, suicide_flag: bool, answers: dict) -
     if gad >= 4:
         recs.append({
             "type": "gad_extended",
-            "reason": f"불안 관련 점수({gad}/9)를 더 정확히 파악하기 위해 추가 문항이 필요합니다.",
+            "reason": "불안하거나 긴장되는 부분에 대해 조금 더 파악하면 도움이 될 것 같아요.",
             "priority": 3,
         })
 

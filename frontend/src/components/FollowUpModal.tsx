@@ -29,7 +29,7 @@ export default function FollowUpModal({ sessionId, recommendation, onComplete, o
   useEffect(() => {
     assessmentApi.getFollowUpQuestions(sessionId, recommendation.type)
       .then(res => { setQuestions(res.data.questions); setStep('intro') })
-      .catch(() => setError('문항을 불러오는 데 실패했습니다.'))
+      .catch(() => { setError('문항을 불러오는 데 실패했습니다.'); setStep('intro') })
   }, [sessionId, recommendation.type])
 
   const q = questions[currentQ]
@@ -38,6 +38,7 @@ export default function FollowUpModal({ sessionId, recommendation, onComplete, o
   const progress = questions.length > 0 ? Math.round((currentQ / questions.length) * 100) : 0
 
   function selectAnswer(value: number) {
+    if (!q) return
     const next = { ...answers, [q.key]: value }
     setAnswers(next)
     if (currentQ < questions.length - 1) {
@@ -73,16 +74,20 @@ export default function FollowUpModal({ sessionId, recommendation, onComplete, o
           <div>
             <p className={`text-xs font-medium mb-1 ${meta.color}`}>{meta.title}</p>
             <p className="text-sm text-slate-300 leading-relaxed">{recommendation.reason}</p>
-            <p className="text-xs text-slate-600 mt-2">총 {questions.length}문항 · 약 1분 소요</p>
+            {questions.length > 0 && (
+              <p className="text-xs text-slate-600 mt-2">총 {questions.length}문항 · 약 1분 소요</p>
+            )}
           </div>
           {error && <p className="text-xs text-red-400">{error}</p>}
           <div className="space-y-2">
-            <button
-              onClick={() => setStep('questions')}
-              className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-medium transition-colors"
-            >
-              검사 시작하기
-            </button>
+            {questions.length > 0 && !error && (
+              <button
+                onClick={() => setStep('questions')}
+                className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-medium transition-colors"
+              >
+                검사 시작하기
+              </button>
+            )}
             <button
               onClick={onSkip}
               className="w-full py-2 text-xs text-slate-600 hover:text-slate-500 transition-colors"

@@ -261,9 +261,9 @@ async def generate_greeting(
 
 @router.get("/{session_id}/followup/{followup_type}")
 async def get_followup_questions_endpoint(
-    _session_id: str,
+    session_id: str,  # noqa: ARG001
     followup_type: str,
-    _current_user: TokenPayload = Depends(get_current_user),
+    current_user: TokenPayload = Depends(get_current_user),  # noqa: ARG001
 ):
     """심화 테스트 문항 목록 반환."""
     valid_types = ("phq_extended", "gad_extended", "crisis_detailed")
