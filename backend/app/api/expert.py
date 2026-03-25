@@ -1,7 +1,7 @@
 import uuid
 import structlog
 from datetime import datetime, timezone
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, HTTPException, Query, status
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, HTTPException, Query
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,8 +13,6 @@ from ..schemas.expert import (
     ExpertQueueResponse,
     FeedbackRequest,
     FeedbackResponse,
-    WSHighRiskAlert,
-    WSReviewDecision,
 )
 from .expert_ws_manager import expert_ws_manager
 

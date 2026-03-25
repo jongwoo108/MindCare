@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import String, Integer, Text, Enum as SAEnum, ForeignKey, JSON
+from sqlalchemy import Integer, Text, Enum as SAEnum, ForeignKey, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID
 from .base import Base, TimestampMixin

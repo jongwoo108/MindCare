@@ -1,7 +1,7 @@
 from uuid import UUID
 from typing import Optional
 from datetime import datetime
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel
 
 
 class SessionCreate(BaseModel):

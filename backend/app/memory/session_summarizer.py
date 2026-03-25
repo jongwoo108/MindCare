@@ -12,7 +12,7 @@ ChromaDB에 저장할 간결한 요약을 생성한다.
   - 다음 세션을 위한 핵심 참고 사항
 """
 import structlog
-from langchain_core.messages import BaseMessage, SystemMessage, HumanMessage
+from langchain_core.messages import SystemMessage, HumanMessage
 from langchain_openai import ChatOpenAI
 
 from ..config import get_settings

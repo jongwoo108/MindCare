@@ -1,5 +1,4 @@
 import asyncio
-import uuid
 import structlog
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query
 from langchain_core.messages import HumanMessage, AIMessage
