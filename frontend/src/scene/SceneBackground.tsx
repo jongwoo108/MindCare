@@ -23,12 +23,12 @@ const OVERLAY: Record<TimeOfDay, string> = {
   night:     'rgba(0,6,18,0.25)',        // 어두운 밤
 }
 
-// 별은 밤/저녁에만 표시
-const SHOW_STARS: Record<TimeOfDay, boolean> = {
-  morning:   false,
-  afternoon: false,
-  evening:   true,
-  night:     true,
+// 시간대별 별 개수 (낮에는 적고 희미하게, 밤에는 많이)
+const STAR_COUNT: Record<TimeOfDay, number> = {
+  morning:   30,
+  afternoon: 0,
+  evening:   80,
+  night:     120,
 }
 
 export default function SceneBackground() {
@@ -74,8 +74,8 @@ export default function SceneBackground() {
         }}
       />
 
-      {/* ── 4. 별 (밤/저녁) ── */}
-      {SHOW_STARS[period] && <StarField count={120} />}
+      {/* ── 4. 별 (시간대별 밀도) ── */}
+      {STAR_COUNT[period] > 0 && <StarField count={STAR_COUNT[period]} />}
 
       {/* ── 5. 수면 shimmer ── */}
       {[56, 62, 68, 74, 80].map((top, i) => (
