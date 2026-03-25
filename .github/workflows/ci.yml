@@ -110,4 +110,6 @@ jobs:
         run: docker build -t mindcare-backend:ci ./backend
 
       - name: Validate docker-compose config
-        run: docker compose config --quiet
+        run: |
+          cp .env.example .env 2>/dev/null || touch .env
+          docker compose config --quiet
