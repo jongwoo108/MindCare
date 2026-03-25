@@ -53,14 +53,15 @@
 
 ---
 
-## Phase 4: 인프라 & 폴리싱 (Week 7-8) 🔄 진행 중
+## Phase 4: 인프라 & 폴리싱 (Week 7-8) ✅ 완료
 
 **목표**: 배포 가능한 프로토타입 + 문서화
 
 ### 태스크
 
 - [x] Docker Compose 풀 스택 구성 (Backend / PostgreSQL / Redis / ChromaDB)
-- [x] CI/CD 파이프라인 (GitHub Actions)
+- [x] CI/CD 파이프라인 (GitHub Actions — ruff + pytest + tsc + eslint + docker build)
+- [x] CI 서비스 구성 (postgres:16-alpine + redis:7-alpine 테스트 컨테이너)
 - [x] API 문서화 (OpenAPI/Swagger — `/docs`)
 - [x] 아키텍처 문서 (`docs/`)
 - [x] README 포트폴리오 정리
@@ -68,7 +69,46 @@
 - [ ] AWS ECS 배포 구성 (또는 로컬 K8s)
 - [ ] 데모 시나리오 영상 녹화
 
-**산출물**: Docker 한 줄로 실행 가능한 풀 스택 + 데모 영상
+**산출물**: Docker 한 줄로 실행 가능한 풀 스택 ✅
+
+---
+
+## Phase 5: 임상 평가 플로우 + UI 고도화 ✅ 완료
+
+**목표**: 사용자 경험을 높이는 평가 흐름과 몰입형 시각 UI
+
+### 태스크
+
+- [x] 초기 평가 모달 (AssessmentModal) — PHQ-9 / GAD / Safety 9문항
+- [x] 심화 검사 시스템 (FollowUpModal + FollowUpInviteCard)
+  - crisis_detailed / phq_extended / gad_extended 3종
+  - 채팅 흐름 내 인라인 초대 카드 → 모달 단계적 전환
+- [x] 퀵 리플라이 칩 — AI 인사 메시지에 3개 선택지 버튼
+- [x] Time-of-Day 배경 시스템 (`useTimeOfDay` + `SceneBackground`)
+  - 실제 시각 기반 4시간대 자동 감지 (60초 폴링)
+  - 배경 이미지 3초 크로스페이드 전환
+  - 별 반짝임 (`StarField`) — 시간대별 밀도 (0 / 30 / 80 / 120)
+  - 수면 shimmer 애니메이션 레이어
+- [x] UI 테마 시스템 (`sceneTheme.ts`) — 시간대별 21개 색조 토큰
+  - 헤더/채팅 버블/입력창/전송 버튼/모달 전체 동시 전환
+
+**산출물**: 시간대에 반응하는 몰입형 UI + 단계적 임상 평가 흐름 ✅
+
+---
+
+## Phase 6: 의사-환자 매칭 플랫폼 ✅ 완료
+
+**목표**: 전문가 매칭 기능으로 서비스 범위 확장
+
+### 태스크
+
+- [x] DB 모델 (DoctorProfile / PatientCase / DoctorPatientMatch)
+- [x] Alembic 마이그레이션 (migration 005)
+- [x] REST API (doctor.py) — 프로필 CRUD + 매칭 생성/수락/거절/완료
+- [x] 의사 프로필 등록 페이지 (DoctorSetupPage.tsx)
+- [x] 의사 매칭 대시보드 (DoctorDashboard.tsx)
+
+**산출물**: 의사 등록 → 환자 케이스 매칭 전체 흐름 동작 ✅
 
 ---
 
@@ -127,5 +167,11 @@
 | Expert-in-the-loop | ✅ 완료 | 대기열 + WS 알림 + 대시보드 |
 | 전문가 대시보드 UI | ✅ 완료 | 승인/수정 인터페이스 |
 | SOAP 임상 노트 | ✅ 완료 | 세션 종료 시 자동 생성 + PostgreSQL 저장 |
-| CI/CD | ✅ 완료 | GitHub Actions (ruff + pytest + tsc + docker build) |
-| AWS 배포 | 🔜 다음 | Phase 4 |
+| 초기 평가 (PHQ/GAD/Safety) | ✅ 완료 | 9문항 + 심화 검사 3종 |
+| 퀵 리플라이 칩 | ✅ 완료 | AI 인사 메시지에 3개 버튼 |
+| Time-of-Day 배경 | ✅ 완료 | 4시간대 자동 교체 + 크로스페이드 |
+| UI 테마 시스템 | ✅ 완료 | 21개 색조 토큰 × 4시간대 |
+| 별 반짝임 애니메이션 | ✅ 완료 | CSS `star-twinkle` + 시간대 밀도 |
+| 의사-환자 매칭 | ✅ 완료 | DoctorProfile + PatientCase + Match |
+| CI/CD | ✅ 완료 | GitHub Actions (ruff + pytest + tsc + eslint + docker build) |
+| AWS 배포 | 🔜 다음 | 향후 Phase |

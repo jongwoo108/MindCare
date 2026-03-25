@@ -174,6 +174,21 @@ expert_reviews
   status (pending/approved/modified)
   reviewer_id (FK) | modified_content | feedback_category | feedback_note
   reviewed_at
+
+doctor_profiles
+  id (UUID PK) | user_id (FK) | specialties (JSON) | credentials (JSON)
+  bio | years_experience | languages (JSON) | session_fee
+  is_accepting_patients | is_verified
+
+patient_cases
+  id (UUID PK) | user_id (FK) | chief_complaint | diagnosis_history (JSON)
+  preferred_approach | severity_level | is_active
+
+doctor_patient_matches
+  id (UUID PK) | doctor_id (FK → doctor_profiles) | patient_id (FK → users)
+  case_id (FK → patient_cases) | status (pending/accepted/rejected/completed)
+  match_score | doctor_notes | patient_notes
+  created_at | updated_at
 ```
 
 ## 7. 기술 스택
@@ -192,5 +207,69 @@ expert_reviews
 | 상태 관리 | Zustand | — |
 | 컨테이너 | Docker + Docker Compose | — |
 | 클라우드 (예정) | AWS ECS Fargate | — |
-| CI/CD (예정) | GitHub Actions | — |
+| CI/CD | GitHub Actions | ✅ 완료 |
 | 구조화 로깅 | structlog | 24.4.0 |
+
+## 8. 프론트엔드 아키텍처
+
+### 8-1. Scene 레이어 시스템
+
+`SceneBackground` 컴포넌트는 6개 레이어로 구성됩니다.
+
+```
+┌──────────────────────────────────────────────────────┐
+│  Layer 6: 비네팅 (radial-gradient 주변부 어둠)          │
+│  Layer 5: 하단 페이드 (linear-gradient, 하단 18%)       │
+│  Layer 4: 수면 shimmer (animate-water-shimmer × 5)    │
+│  Layer 3: StarField (별 반짝임, 시간대별 밀도)           │
+│  Layer 2: 색조 오버레이 (tint, 3s transition)           │
+│  Layer 1: 배경 이미지 (crossfade, 3s ease)             │
+└──────────────────────────────────────────────────────┘
+```
+
+**`useTimeOfDay` 훅**
+
+```ts
+type TimeOfDay = 'morning' | 'afternoon' | 'evening' | 'night'
+// 시각 기준: 06-12 / 12-17 / 17-21 / 21-06
+// 60_000ms 간격으로 폴링 → period 변경 시 SceneBackground 자동 반응
+```
+
+### 8-2. UI 테마 시스템 (`sceneTheme.ts`)
+
+`SceneTheme` 인터페이스는 21개 Tailwind CSS 클래스 토큰으로 구성됩니다.
+
+| 토큰 그룹 | 토큰 |
+|----------|------|
+| 공통 크롬 | `chrome`, `sub` |
+| 채팅 버블 | `userBubble`, `aiBubble`, `userName`, `aiName`, `timestamp` |
+| 입력 영역 | `input`, `sendBtn` |
+| 퀵 리플라이 | `chip` |
+| 모달 | `modalBackdrop`, `modalPanel`, `modalTitle`, `modalBody`, `modalOption`, `modalOptionSel`, `modalTextarea`, `modalProgressBg`, `modalProgressFill`, `modalPrimaryBtn` |
+
+`ChatPage`에서 `getTheme(period)`를 호출하여 모든 자식 컴포넌트에 전달합니다.
+
+```tsx
+const { period } = useTimeOfDay()
+const theme = getTheme(period)
+// → AssessmentModal, FollowUpModal, ChatMessage 모두 theme prop 수신
+```
+
+### 8-3. 초기 평가 흐름
+
+```
+ChatPage mount
+  → sessionsApi.create() → sessionId 확보
+  → AssessmentModal 표시 (z-50 모달)
+      → 9문항 (PHQ / GAD / Safety) 순차 응답
+      → complaint 자유 입력 (선택)
+      → assessmentApi.submit() → 서버 저장
+  → assessmentApi.greeting() → GreetingResponse
+      { content, quick_replies: string[], follow_ups: FollowUpRecommendation[] }
+  → 인사 메시지 + 퀵 리플라이 칩 표시
+  → followUpQueue 큐 구성
+      → FollowUpInviteCard (채팅 흐름 내 인라인 카드)
+          → "시작하기" → FollowUpModal (심화 검사)
+          → "건너뛸게요" → 다음 항목으로 이동
+      → 큐 소진 → MatchNotification 표시
+```

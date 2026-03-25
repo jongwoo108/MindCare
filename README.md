@@ -10,6 +10,17 @@
 
 ## 핵심 기능
 
+### 초기 임상 평가 (PHQ / GAD / Safety)
+상담 시작 전 9문항 간이 설문(우울·불안·안전)을 수집합니다. AI가 결과를 분석해 맞춤형 인사 메시지와 **퀵 리플라이 칩**을 제공하고, 필요 시 PHQ 심화·GAD 심화·안전 확인 추가 검사를 순차적으로 제안합니다.
+
+```
+사용자 → AssessmentModal (9문항) → assessmentApi.submit()
+  → AI 인사 메시지 + quick_replies[] (칩 버튼)
+  → FollowUpRecommendation[] 큐 생성
+    → FollowUpInviteCard (채팅 흐름 내 인라인 카드)
+      → FollowUpModal (심화 검사 진행)
+```
+
 ### 멀티에이전트 오케스트레이션
 LangGraph `StateGraph`로 구성된 5-노드 파이프라인이 모든 대화를 처리합니다.
 
@@ -49,6 +60,27 @@ AI 응답 생성 → expert_reviews (pending)
 
 ### SOAP 임상 노트 자동 생성
 세션 종료 시 LLM이 대화를 분석하여 SOAP 형식(주관적/객관적/평가/계획) 임상 노트를 자동 생성합니다.
+
+### 의사-환자 매칭 플랫폼
+전문 상담사/의사 프로필 등록과 환자 케이스 기반 매칭 기능을 제공합니다.
+
+| 기능 | 설명 |
+|-----|------|
+| DoctorProfile | 전문 분야·자격·경력·가격 등록 |
+| PatientCase | 주訴·진단 이력·선호 접근법 등록 |
+| DoctorPatientMatch | 매칭 생성·수락·거절·완료 상태 관리 |
+
+### 몰입형 시각 UI (Time-of-Day Scene)
+실제 시각(6개 시간대)에 따라 배경 이미지·별·물결·색조가 자동으로 교체됩니다.
+
+| 시간대 | 배경 | 별 개수 | 오버레이 |
+|-------|------|--------|---------|
+| Morning (06-12) | 아침 호수 | 30 | 따뜻한 노란 빛 |
+| Afternoon (12-17) | 아침 호수 | 0 | 맑은 낮 빛 |
+| Evening (17-21) | 밤 호수 | 80 | 황혼 주황 |
+| Night (21-06) | 밤 호수 | 120 | 깊은 밤 |
+
+모든 UI 색조(헤더·채팅 버블·모달·입력창)가 시간대에 맞춰 **동시에 전환**됩니다.
 
 ---
 
@@ -110,14 +142,34 @@ MindCare/
 │   │   ├── api/
 │   │   │   ├── chat.py              # WS /ws/chat/{id}
 │   │   │   ├── expert.py            # Expert 대기열 + WS
+│   │   │   ├── assessment.py        # 초기 평가 + 심화 검사
+│   │   │   ├── doctor.py            # 의사 프로필 + 매칭
 │   │   │   └── sessions.py
 │   │   └── models/                  # SQLAlchemy 모델
+│   │       ├── user.py
+│   │       ├── session.py
+│   │       ├── doctor.py            # DoctorProfile, PatientCase
+│   │       └── matching.py          # DoctorPatientMatch
 │   └── tests/
 ├── frontend/
 │   └── src/
 │       ├── pages/
-│       │   ├── ChatPage.tsx         # 사용자 채팅
-│       │   └── ExpertDashboard.tsx  # 전문가 대시보드
+│       │   ├── ChatPage.tsx          # 사용자 채팅
+│       │   ├── ExpertDashboard.tsx   # 전문가 대시보드
+│       │   ├── DoctorDashboard.tsx   # 의사 매칭 대시보드
+│       │   └── DoctorSetupPage.tsx   # 의사 프로필 등록
+│       ├── scene/                    # 시각 배경 시스템
+│       │   ├── SceneBackground.tsx   # 배경 이미지 + 오버레이 레이어
+│       │   ├── StarField.tsx         # 별 반짝임 애니메이션
+│       │   ├── useTimeOfDay.ts       # 시간대 감지 훅
+│       │   └── sceneTheme.ts         # 시간대별 UI 색조 토큰 (21종)
+│       ├── components/
+│       │   ├── AssessmentModal.tsx   # 초기 9문항 설문 모달
+│       │   ├── FollowUpModal.tsx     # 심화 검사 모달
+│       │   └── FollowUpInviteCard.tsx # 채팅 내 검사 초대 카드
+│       ├── api/
+│       │   ├── assessment.ts        # 평가 API 클라이언트
+│       │   └── doctor.ts            # 의사 API 클라이언트
 │       └── hooks/
 │           ├── useChat.ts
 │           └── useExpertWS.ts
@@ -153,6 +205,23 @@ MindCare/
 위기 세션 AI 응답 생성
   → expert_reviews 테이블에 pending 등록
   → 상담사가 /expert 대시보드에서 응답 수정 후 승인
+```
+
+### 시나리오 5 — 초기 평가 + 심화 검사
+```
+세션 시작
+  → AssessmentModal: 9문항 응답
+  → AI 인사 + 퀵 리플라이 칩 표시
+  → FollowUpInviteCard: "우울 심화 검사를 해볼까요?" (인라인 카드)
+  → 사용자가 "시작하기" → FollowUpModal: PHQ 심화 문항
+  → 결과 분석 후 채팅 재개
+```
+
+### 시나리오 6 — 시간대별 UI 변환
+```
+낮 12시: 밝은 아침 배경 + 밝은 UI (파란 빛 말풍선, 흰 배경 모달)
+밤 22시: 어두운 밤 배경 + 어두운 UI (딥 네이비 말풍선, 별 120개)
+→ 배경 3초 크로스페이드 + UI 토큰 1초 전환으로 자연스럽게 변경
 ```
 
 ### 시나리오 4 — 다회기 컨텍스트 유지
