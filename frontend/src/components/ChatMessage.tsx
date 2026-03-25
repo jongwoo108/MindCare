@@ -42,10 +42,10 @@ export default function ChatMessage({ msg }: Props) {
         {/* 말풍선 */}
         <div className={`px-4 py-3 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap
           ${isUser
-            ? 'bg-indigo-950 text-indigo-100 rounded-tr-sm border border-indigo-900/50'
+            ? 'bg-indigo-900/70 backdrop-blur-sm text-indigo-100 rounded-tr-sm border border-indigo-700/40'
             : isCrisis
-              ? 'bg-red-950/30 border border-red-900/25 text-red-200 rounded-tl-sm'
-              : 'bg-[#111927] border border-white/[0.06] text-slate-200 rounded-tl-sm'
+              ? 'bg-red-950/50 backdrop-blur-sm border border-red-900/30 text-red-200 rounded-tl-sm'
+              : 'bg-slate-900/60 backdrop-blur-sm border border-white/[0.09] text-slate-200 rounded-tl-sm'
           }`}>
           {msg.content}
         </div>

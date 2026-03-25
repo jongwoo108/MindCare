@@ -3,16 +3,16 @@ interface Props {
 }
 
 export default function TreeSilhouette({ reflection = false }: Props) {
-  const style: React.CSSProperties = reflection
+  const wrapStyle: React.CSSProperties = reflection
     ? {
         position: 'absolute',
-        bottom: 0,
+        top: 0,
         left: 0,
         right: 0,
         transform: 'scaleY(-1)',
         transformOrigin: 'top',
-        opacity: 0.35,
-        filter: 'blur(1.5px)',
+        opacity: 0.28,
+        filter: 'blur(2px)',
       }
     : {
         position: 'absolute',
@@ -21,109 +21,119 @@ export default function TreeSilhouette({ reflection = false }: Props) {
         right: 0,
       }
 
+  // True black silhouette — must contrast strongly against navy sky
+  const C = '#000913'   // silhouette color
+
   return (
-    <div style={style}>
+    <div style={wrapStyle}>
       <svg
-        viewBox="0 0 1440 220"
+        viewBox="0 0 1440 260"
         xmlns="http://www.w3.org/2000/svg"
         preserveAspectRatio="xMidYMax meet"
         style={{ display: 'block', width: '100%' }}
       >
-        {/* Ground fill */}
-        <rect x="0" y="180" width="1440" height="40" fill="#060d18" />
+        {/* solid ground */}
+        <rect x="0" y="210" width="1440" height="50" fill={C} />
 
-        {/* --- Left cluster --- */}
-        {/* Tall pine L1 */}
-        <polygon points="60,185 80,100 100,185" fill="#080f1c" />
-        <polygon points="65,150 80,70 95,150" fill="#080f1c" />
-        <polygon points="68,120 80,40 92,120" fill="#0a1220" />
-        {/* Trunk */}
-        <rect x="77" y="185" width="6" height="20" fill="#060d18" />
+        {/* ── Far-left cluster ── */}
+        <polygon points="0,210 18,110 36,210"    fill={C} />
+        <polygon points="3,165 18,75 33,165"     fill={C} />
+        <polygon points="6,130 18,48 30,130"     fill={C} />
 
-        {/* Tall pine L2 */}
-        <polygon points="110,185 135,95 160,185" fill="#080f1c" />
-        <polygon points="115,148 135,65 155,148" fill="#0a1220" />
-        <polygon points="120,115 135,35 150,115" fill="#0c1424" />
-        <rect x="132" y="185" width="6" height="20" fill="#060d18" />
+        <polygon points="32,210 52,120 72,210"   fill={C} />
+        <polygon points="36,172 52,88 68,172"    fill={C} />
+        <polygon points="39,138 52,60 65,138"    fill={C} />
+        <rect x="49" y="210" width="6" height="28" fill={C} />
 
-        {/* Mid pine L3 */}
-        <polygon points="155,185 170,120 185,185" fill="#080f1c" />
-        <polygon points="158,155 170,90 182,155" fill="#0a1220" />
-        <rect x="167" y="185" width="6" height="20" fill="#060d18" />
+        <polygon points="70,210 88,148 106,210"  fill={C} />
+        <polygon points="73,175 88,118 103,175"  fill={C} />
+        <rect x="85" y="210" width="6" height="28" fill={C} />
 
-        {/* Short bush L */}
-        <ellipse cx="40" cy="185" rx="30" ry="18" fill="#060d18" />
-        <ellipse cx="15" cy="188" rx="18" ry="12" fill="#060d18" />
+        {/* low bush */}
+        <ellipse cx="22"  cy="212" rx="28" ry="14" fill={C} />
 
-        {/* --- Center-left --- */}
-        <polygon points="260,185 285,80 310,185" fill="#080f1c" />
-        <polygon points="265,145 285,50 305,145" fill="#0a1220" />
-        <polygon points="270,112 285,28 300,112" fill="#0c1424" />
-        <rect x="282" y="185" width="6" height="20" fill="#060d18" />
+        {/* ── Left cluster ── */}
+        <polygon points="130,210 155,98  180,210"  fill={C} />
+        <polygon points="135,160 155,68  175,160"  fill={C} />
+        <polygon points="140,126 155,40  170,126"  fill={C} />
+        <rect x="152" y="210" width="6" height="28" fill={C} />
 
-        <polygon points="310,185 328,118 346,185" fill="#080f1c" />
-        <polygon points="314,152 328,88 342,152" fill="#0a1220" />
-        <rect x="325" y="185" width="6" height="20" fill="#060d18" />
+        <polygon points="182,210 200,135 218,210"  fill={C} />
+        <polygon points="185,168 200,108 215,168"  fill={C} />
+        <rect x="197" y="210" width="6" height="28" fill={C} />
 
-        {/* --- Center (sparse for sky reflection) --- */}
-        <polygon points="580,185 600,100 620,185" fill="#080f1c" />
-        <polygon points="584,148 600,68 616,148" fill="#0a1220" />
-        <rect x="597" y="185" width="6" height="20" fill="#060d18" />
+        <polygon points="215,210 230,150 245,210"  fill={C} />
+        <rect x="227" y="210" width="6" height="28" fill={C} />
 
-        <polygon points="640,185 655,130 670,185" fill="#080f1c" />
-        <polygon points="643,160 655,105 667,160" fill="#0a1220" />
-        <rect x="652" y="185" width="6" height="20" fill="#060d18" />
+        {/* ── Center-left ── */}
+        <polygon points="330,210 358,88  386,210"  fill={C} />
+        <polygon points="335,155 358,58  381,155"  fill={C} />
+        <polygon points="340,120 358,30  376,120"  fill={C} />
+        <rect x="355" y="210" width="6" height="28" fill={C} />
 
-        {/* --- Center-right --- */}
-        <polygon points="800,185 825,75 850,185" fill="#080f1c" />
-        <polygon points="805,145 825,45 845,145" fill="#0a1220" />
-        <polygon points="810,112 825,22 840,112" fill="#0c1424" />
-        <rect x="822" y="185" width="6" height="20" fill="#060d18" />
+        <polygon points="388,210 406,130 424,210"  fill={C} />
+        <polygon points="391,162 406,103 421,162"  fill={C} />
+        <rect x="403" y="210" width="6" height="28" fill={C} />
 
-        <polygon points="855,185 872,115 889,185" fill="#080f1c" />
-        <polygon points="858,152 872,85 886,152" fill="#0a1220" />
-        <rect x="869" y="185" width="6" height="20" fill="#060d18" />
+        {/* ── Sparse center (leave gap for moon reflection column) ── */}
+        <polygon points="530,210 548,148 566,210"  fill={C} />
+        <polygon points="533,172 548,118 563,172"  fill={C} />
+        <rect x="545" y="210" width="6" height="28" fill={C} />
 
-        <polygon points="890,185 905,128 920,185" fill="#080f1c" />
-        <polygon points="893,158 905,100 917,158" fill="#0a1220" />
-        <rect x="902" y="185" width="6" height="20" fill="#060d18" />
+        {/* gap ~580–860 for moon reflection */}
 
-        {/* --- Right cluster --- */}
-        <polygon points="1100,185 1125,88 1150,185" fill="#080f1c" />
-        <polygon points="1105,148 1125,58 1145,148" fill="#0a1220" />
-        <polygon points="1110,115 1125,30 1140,115" fill="#0c1424" />
-        <rect x="1122" y="185" width="6" height="20" fill="#060d18" />
+        <polygon points="860,210 876,155 892,210"  fill={C} />
+        <polygon points="862,178 876,128 890,178"  fill={C} />
+        <rect x="873" y="210" width="6" height="28" fill={C} />
 
-        <polygon points="1152,185 1170,112 1188,185" fill="#080f1c" />
-        <polygon points="1155,150 1170,82 1185,150" fill="#0a1220" />
-        <rect x="1167" y="185" width="6" height="20" fill="#060d18" />
+        {/* ── Center-right ── */}
+        <polygon points="920,210 948,90  976,210"  fill={C} />
+        <polygon points="925,152 948,60  971,152"  fill={C} />
+        <polygon points="930,118 948,32  966,118"  fill={C} />
+        <rect x="945" y="210" width="6" height="28" fill={C} />
 
-        <polygon points="1195,185 1215,95 1235,185" fill="#080f1c" />
-        <polygon points="1199,148 1215,65 1231,148" fill="#0a1220" />
-        <polygon points="1203,115 1215,38 1227,115" fill="#0c1424" />
-        <rect x="1212" y="185" width="6" height="20" fill="#060d18" />
+        <polygon points="978,210 996,132 1014,210" fill={C} />
+        <polygon points="981,162 996,105 1011,162" fill={C} />
+        <rect x="993" y="210" width="6" height="28" fill={C} />
 
-        <polygon points="1245,185 1260,125 1275,185" fill="#080f1c" />
-        <polygon points="1248,158 1260,95 1272,158" fill="#0a1220" />
-        <rect x="1257" y="185" width="6" height="20" fill="#060d18" />
+        <polygon points="1018,210 1033,148 1048,210" fill={C} />
+        <rect x="1030" y="210" width="6" height="28" fill={C} />
 
-        {/* Far right pines */}
-        <polygon points="1310,185 1330,90 1350,185" fill="#080f1c" />
-        <polygon points="1314,148 1330,60 1346,148" fill="#0a1220" />
-        <rect x="1327" y="185" width="6" height="20" fill="#060d18" />
+        {/* ── Right cluster ── */}
+        <polygon points="1130,210 1158,92  1186,210" fill={C} />
+        <polygon points="1135,154 1158,62  1181,154" fill={C} />
+        <polygon points="1140,120 1158,34  1176,120" fill={C} />
+        <rect x="1155" y="210" width="6" height="28" fill={C} />
 
-        <polygon points="1360,185 1380,105 1400,185" fill="#080f1c" />
-        <polygon points="1364,152 1380,75 1396,152" fill="#0a1220" />
-        <rect x="1377" y="185" width="6" height="20" fill="#060d18" />
+        <polygon points="1188,210 1206,130 1224,210" fill={C} />
+        <polygon points="1191,162 1206,103 1221,162" fill={C} />
+        <rect x="1203" y="210" width="6" height="28" fill={C} />
 
-        <polygon points="1405,185 1420,125 1440,185" fill="#080f1c" />
+        <polygon points="1228,210 1248,95  1268,210" fill={C} />
+        <polygon points="1232,155 1248,65  1264,155" fill={C} />
+        <polygon points="1236,122 1248,38  1260,122" fill={C} />
+        <rect x="1245" y="210" width="6" height="28" fill={C} />
 
-        {/* Short bushes right */}
-        <ellipse cx="1420" cy="185" rx="28" ry="16" fill="#060d18" />
-        <ellipse cx="1390" cy="188" rx="20" ry="12" fill="#060d18" />
+        <polygon points="1272,210 1288,140 1304,210" fill={C} />
+        <rect x="1285" y="210" width="6" height="28" fill={C} />
 
-        {/* Ground baseline strip */}
-        <rect x="0" y="185" width="1440" height="35" fill="#060d18" />
+        {/* ── Far-right cluster ── */}
+        <polygon points="1340,210 1362,100 1384,210" fill={C} />
+        <polygon points="1344,160 1362,70  1380,160" fill={C} />
+        <polygon points="1348,126 1362,42  1376,126" fill={C} />
+        <rect x="1359" y="210" width="6" height="28" fill={C} />
+
+        <polygon points="1388,210 1406,125 1424,210" fill={C} />
+        <polygon points="1391,160 1406,98  1421,160" fill={C} />
+        <rect x="1403" y="210" width="6" height="28" fill={C} />
+
+        <polygon points="1426,210 1440,138 1440,210" fill={C} />
+
+        {/* bush right */}
+        <ellipse cx="1420" cy="212" rx="26" ry="13" fill={C} />
+
+        {/* ground baseline */}
+        <rect x="0" y="210" width="1440" height="50" fill={C} />
       </svg>
     </div>
   )
