@@ -168,7 +168,7 @@ export default function ChatPage() {
     <div className="relative flex flex-col h-screen bg-[#020810]">
       <SceneBackground />
       {showAssessment && sessionId && (
-        <AssessmentModal sessionId={sessionId} onComplete={handleAssessmentComplete} />
+        <AssessmentModal sessionId={sessionId} onComplete={handleAssessmentComplete} theme={theme} />
       )}
       {followUpModalOpen && followUpQueue.length > 0 && sessionId && (
         <FollowUpModal
@@ -176,6 +176,7 @@ export default function ChatPage() {
           recommendation={followUpQueue[0]}
           onComplete={handleFollowUpComplete}
           onSkip={handleFollowUpSkip}
+          theme={theme}
         />
       )}
       {!showAssessment && !followUpInvite && !followUpModalOpen && showMatchNotification && (
