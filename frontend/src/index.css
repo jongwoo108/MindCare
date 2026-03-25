@@ -19,3 +19,22 @@ body {
 
 /* 텍스트 선택 */
 ::selection { background: rgba(129,140,248,0.25); color: #e0e7ff; }
+
+/* ── Scene animations ── */
+@keyframes star-twinkle {
+  0%, 100% { opacity: var(--star-opacity, 1); }
+  50%       { opacity: 0.05; }
+}
+
+@keyframes water-shimmer {
+  0%, 100% { opacity: 1;   transform: scaleX(1);    }
+  50%       { opacity: 0.3; transform: scaleX(0.92); }
+}
+
+.animate-star-twinkle {
+  animation: star-twinkle var(--duration, 3s) ease-in-out infinite;
+}
+.animate-water-shimmer {
+  animation: water-shimmer 3s ease-in-out infinite;
+  transform-origin: center;
+}

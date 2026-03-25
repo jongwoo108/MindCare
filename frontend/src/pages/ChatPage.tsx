@@ -10,6 +10,7 @@ import AssessmentModal from '../components/AssessmentModal'
 import FollowUpModal from '../components/FollowUpModal'
 import FollowUpInviteCard from '../components/FollowUpInviteCard'
 import MatchNotification from '../components/MatchNotification'
+import SceneBackground from '../scene/SceneBackground'
 
 export default function ChatPage() {
   const navigate = useNavigate()
@@ -148,7 +149,8 @@ export default function ChatPage() {
   const inputBlocked = showAssessment || followUpModalOpen || !!followUpInvite
 
   return (
-    <div className="flex flex-col h-screen bg-[#0d1420]">
+    <div className="relative flex flex-col h-screen bg-[#020810]">
+      <SceneBackground />
       {showAssessment && sessionId && (
         <AssessmentModal sessionId={sessionId} onComplete={handleAssessmentComplete} />
       )}
@@ -165,7 +167,7 @@ export default function ChatPage() {
       )}
 
       {/* 헤더 */}
-      <header className="bg-[#0d1420]/95 backdrop-blur-sm border-b border-white/[0.05] px-4 py-3 flex items-center justify-between shrink-0">
+      <header className="relative z-10 bg-black/30 backdrop-blur-md border-b border-white/[0.08] px-4 py-3 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-2.5">
           <div className="w-7 h-7 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-sm">
             🌙
@@ -182,7 +184,7 @@ export default function ChatPage() {
       </header>
 
       {/* 메시지 영역 */}
-      <div className="flex-1 overflow-y-auto px-4 py-6 space-y-5">
+      <div className="relative z-10 flex-1 overflow-y-auto px-4 py-6 space-y-5">
         {messages.length === 0 && !isGreeting && (
           <div className="flex flex-col items-center justify-center h-full gap-3 text-center pb-20">
             <div className="w-12 h-12 rounded-full bg-indigo-500/10 border border-indigo-500/15 flex items-center justify-center text-xl">
@@ -229,7 +231,7 @@ export default function ChatPage() {
       </div>
 
       {/* 입력 영역 */}
-      <div className="bg-[#0d1420]/95 backdrop-blur-sm border-t border-white/[0.05] px-4 py-4 shrink-0">
+      <div className="relative z-10 bg-black/30 backdrop-blur-md border-t border-white/[0.08] px-4 py-4 shrink-0">
         <div className="flex gap-2.5 max-w-2xl mx-auto">
           <textarea
             value={input}
