@@ -1,8 +1,10 @@
 import type { Message } from '../store/chatStore'
+import type { SceneTheme } from '../scene/sceneTheme'
 import RiskBadge from './RiskBadge'
 
 interface Props {
   msg: Message
+  theme: SceneTheme
   showQuickReplies?: boolean
   onQuickReply?: (text: string) => void
 }
@@ -13,7 +15,7 @@ const agentLabel: Record<string, string> = {
   triage: '분석',
 }
 
-export default function ChatMessage({ msg, showQuickReplies, onQuickReply }: Props) {
+export default function ChatMessage({ msg, theme, showQuickReplies, onQuickReply }: Props) {
   const isUser = msg.role === 'user'
   const isCrisis = msg.agent === 'crisis'
 
@@ -21,11 +23,7 @@ export default function ChatMessage({ msg, showQuickReplies, onQuickReply }: Pro
     <div className={`flex gap-3 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
       {/* 아바타 */}
       {!isUser && (
-        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm shrink-0 mt-1 border
-          ${isCrisis
-            ? 'bg-red-950/40 border-red-900/30 text-red-300'
-            : 'bg-indigo-500/10 border-indigo-500/20 text-indigo-300'
-          }`}>
+        <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm shrink-0 mt-1 border bg-white/10 border-white/20">
           {isCrisis ? '🆘' : '🌙'}
         </div>
       )}
@@ -34,7 +32,7 @@ export default function ChatMessage({ msg, showQuickReplies, onQuickReply }: Pro
         {/* 에이전트 레이블 + 뱃지 */}
         {!isUser && msg.agent && (
           <div className="flex items-center gap-2 px-1">
-            <span className="text-xs text-slate-600">{agentLabel[msg.agent] ?? msg.agent}</span>
+            <span className={`text-xs ${theme.sub}`}>{agentLabel[msg.agent] ?? msg.agent}</span>
             {msg.risk_level !== undefined && msg.risk_level >= 4 && (
               <RiskBadge level={msg.risk_level} />
             )}
@@ -44,15 +42,15 @@ export default function ChatMessage({ msg, showQuickReplies, onQuickReply }: Pro
         {/* 말풍선 */}
         <div className={`px-4 py-3 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap
           ${isUser
-            ? 'bg-indigo-900/70 backdrop-blur-sm text-indigo-100 rounded-tr-sm border border-indigo-700/40'
+            ? `${theme.userBubble} ${theme.userText} rounded-tr-sm`
             : isCrisis
-              ? 'bg-red-950/50 backdrop-blur-sm border border-red-900/30 text-red-200 rounded-tl-sm'
-              : 'bg-slate-900/60 backdrop-blur-sm border border-white/[0.09] text-slate-200 rounded-tl-sm'
+              ? `${theme.crisisBubble} ${theme.crisisText} rounded-tl-sm`
+              : `${theme.aiBubble} ${theme.aiText} rounded-tl-sm`
           }`}>
           {msg.content}
         </div>
 
-        <span className="text-xs text-slate-700 px-1">
+        <span className={`text-xs px-1 ${theme.sub}`}>
           {msg.timestamp.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
         </span>
 
@@ -63,7 +61,7 @@ export default function ChatMessage({ msg, showQuickReplies, onQuickReply }: Pro
               <button
                 key={reply}
                 onClick={() => onQuickReply?.(reply)}
-                className="px-3.5 py-1.5 rounded-full text-xs font-medium border border-indigo-500/35 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20 hover:border-indigo-400/50 transition-all backdrop-blur-sm"
+                className={`px-3.5 py-1.5 rounded-full text-xs font-medium border transition-all backdrop-blur-sm ${theme.chip}`}
               >
                 {reply}
               </button>
