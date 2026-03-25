@@ -4,6 +4,8 @@ import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import ChatPage from './pages/ChatPage'
 import ExpertDashboard from './pages/ExpertDashboard'
+import DoctorSetupPage from './pages/DoctorSetupPage'
+import DoctorDashboard from './pages/DoctorDashboard'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { isLoggedIn } = useAuthStore()
@@ -18,6 +20,8 @@ export default function App() {
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/chat" element={<PrivateRoute><ChatPage /></PrivateRoute>} />
         <Route path="/expert" element={<PrivateRoute><ExpertDashboard /></PrivateRoute>} />
+        <Route path="/doctor/setup" element={<PrivateRoute><DoctorSetupPage /></PrivateRoute>} />
+        <Route path="/doctor/dashboard" element={<PrivateRoute><DoctorDashboard /></PrivateRoute>} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </BrowserRouter>

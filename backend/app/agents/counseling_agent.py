@@ -26,10 +26,16 @@ async def counseling_node(state: ConversationState) -> dict:
 
     system_prompt = COUNSELING_PROMPTS.get(approach, COUNSELING_PROMPTS[_FALLBACK_APPROACH])
 
-    # 장기 메모리 컨텍스트가 있으면 system prompt 앞에 추가
+    # 초기 평가 결과 + 장기 메모리 컨텍스트를 system prompt 앞에 순서대로 주입
+    prefix_parts = []
+    assessment_context = state.get("assessment_context", "")
+    if assessment_context:
+        prefix_parts.append(assessment_context)
     long_term_context = state.get("long_term_context", "")
     if long_term_context:
-        system_prompt = f"{long_term_context}\n\n---\n\n{system_prompt}"
+        prefix_parts.append(long_term_context)
+    if prefix_parts:
+        system_prompt = "\n\n---\n\n".join(prefix_parts) + "\n\n---\n\n" + system_prompt
 
     llm = ChatOpenAI(model=settings.active_model, temperature=0.7)
 

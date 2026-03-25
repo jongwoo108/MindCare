@@ -1,5 +1,21 @@
 @import "tailwindcss";
 
 * { box-sizing: border-box; }
-body { margin: 0; font-family: 'Pretendard', 'Noto Sans KR', system-ui, sans-serif; }
+
+body {
+  margin: 0;
+  font-family: 'Pretendard', 'Noto Sans KR', system-ui, sans-serif;
+  background: #0d1420;
+  color: #e2e8f0;
+}
+
 #root { height: 100dvh; }
+
+/* 스크롤바 — 어두운 테마 */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.15); }
+
+/* 텍스트 선택 */
+::selection { background: rgba(129,140,248,0.25); color: #e0e7ff; }

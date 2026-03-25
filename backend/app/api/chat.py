@@ -28,6 +28,65 @@ def _dict_to_message(msg: dict):
     return AIMessage(content=content)
 
 
+async def _load_assessment_context(session_id: str) -> str | None:
+    """
+    DB에서 세션의 초기 평가 결과를 로드하여 에이전트 주입용 요약 문자열을 반환한다.
+    평가가 없으면 None 반환.
+    """
+    try:
+        from ..core.database import AsyncSessionFactory
+        from ..models.assessment import AssessmentResult
+        from sqlalchemy import select as _select
+        import uuid as _uuid
+
+        async with AsyncSessionFactory() as db:
+            result = await db.execute(
+                _select(AssessmentResult).where(
+                    AssessmentResult.session_id == _uuid.UUID(session_id)
+                )
+            )
+            ar = result.scalar_one_or_none()
+            if not ar:
+                return None
+
+        phq_severity = _phq_severity(ar.phq_score)
+        gad_severity = _gad_severity(ar.gad_score)
+
+        lines = [
+            "[초기 정신건강 평가 결과]",
+            f"- 우울 지수 (PHQ): {ar.phq_score}/15 → {phq_severity}",
+            f"- 불안 지수 (GAD): {ar.gad_score}/9 → {gad_severity}",
+            f"- 자해/자살 사고: {'있음 (즉각 주의 필요)' if ar.suicide_flag else '없음'}",
+            f"- 초기 위험도: {ar.initial_risk_level}/10",
+        ]
+        if ar.chief_complaint:
+            lines.append(f"- 오늘 상담 주제: {ar.chief_complaint}")
+
+        return "\n".join(lines)
+
+    except Exception as e:
+        logger.warning("assessment_load_failed", error=str(e))
+        return None
+
+
+def _phq_severity(score: int) -> str:
+    if score <= 4:
+        return "최소 (Minimal)"
+    if score <= 9:
+        return "경증 (Mild)"
+    if score <= 14:
+        return "중등도 (Moderate)"
+    return "중증 (Severe)"
+
+
+def _gad_severity(score: int) -> str:
+    if score <= 4:
+        return "최소 (Minimal)"
+    if score <= 9:
+        return "경증 (Mild)"
+    return "중등도 이상 (Moderate+)"
+
+
 async def _create_expert_review(
     session_id: str,
     user_id: str,
@@ -190,6 +249,116 @@ async def _generate_soap_note(
         logger.error("soap_note_error", session_id=session_id, error=str(e))
 
 
+async def _create_patient_case(
+    user_id: str,
+    session_id: str,
+    memory: WorkingMemory,
+    peak_risk: int,
+) -> None:
+    """
+    세션 종료 시 익명화 PatientCase 카드를 자동 생성한다.
+    메시지 수가 너무 적으면 생성하지 않는다.
+    """
+    try:
+        messages = await memory.get_messages(session_id)
+        if len(messages) < 4:
+            return
+
+        from ..core.database import AsyncSessionFactory
+        from ..models.patient_case import PatientCase
+        from ..models.assessment import AssessmentResult
+        from ..config import get_settings
+        from sqlalchemy import select as _select
+        from langchain_openai import ChatOpenAI
+        from langchain_core.messages import SystemMessage, HumanMessage as _HumanMessage
+        import uuid as _uuid
+
+        # 이미 케이스 카드가 있으면 건너뜀
+        async with AsyncSessionFactory() as db:
+            existing = await db.execute(
+                _select(PatientCase).where(PatientCase.session_id == _uuid.UUID(session_id))
+            )
+            if existing.scalar_one_or_none():
+                return
+
+            ar_res = await db.execute(
+                _select(AssessmentResult).where(
+                    AssessmentResult.session_id == _uuid.UUID(session_id)
+                )
+            )
+            ar = ar_res.scalar_one_or_none()
+
+        # LLM으로 익명화 요약 + 키워드 + 추천 전문 분야 생성
+        settings = get_settings()
+        llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.2, api_key=settings.openai_api_key)
+
+        conversation_text = "\n".join(
+            f"{'내담자' if m['role'] == 'user' else 'AI상담사'}: {m['content']}"
+            for m in messages[-20:]  # 최근 20개 메시지만
+        )
+
+        assessment_info = ""
+        if ar:
+            assessment_info = (
+                f"\n초기 평가: PHQ={ar.phq_score}, GAD={ar.gad_score}, "
+                f"자해사고={'있음' if ar.suicide_flag else '없음'}"
+            )
+            if ar.chief_complaint:
+                assessment_info += f", 주호소: {ar.chief_complaint}"
+
+        system = (
+            "당신은 정신건강 플랫폼의 케이스 카드 생성 AI입니다. "
+            "아래 상담 내용을 바탕으로 정신과 의사가 환자를 파악할 수 있는 익명화된 케이스 카드를 생성하세요. "
+            "개인 식별 정보(이름, 직장, 지역 등)는 절대 포함하지 마세요.\n\n"
+            "반드시 아래 JSON 형식으로만 응답하세요:\n"
+            '{"summary": "2-3문장 요약", "keywords": ["키워드1", "키워드2"], '
+            '"recommended_specialties": ["전문분야1", "전문분야2"]}\n\n'
+            "keywords는 주호소 및 증상 키워드 3-5개, "
+            "recommended_specialties는 ['우울증', '불안장애', 'PTSD', '수면장애', '대인관계', '청소년', '중독'] 중 해당하는 것."
+        )
+
+        prompt = f"상담 내용:{assessment_info}\n\n{conversation_text}"
+        response = await llm.ainvoke([SystemMessage(content=system), _HumanMessage(content=prompt)])
+
+        import json as _json
+        try:
+            data = _json.loads(response.content.strip())
+        except Exception:
+            # JSON 파싱 실패 시 기본값 사용
+            data = {"summary": "AI 상담 세션 완료", "keywords": [], "recommended_specialties": []}
+
+        risk_label_map = {
+            (0, 3): "안정",
+            (4, 6): "주의 필요",
+            (7, 8): "위기 상태",
+            (9, 10): "즉각 지원 필요",
+        }
+        risk_label = "안정"
+        for (low, high), label in risk_label_map.items():
+            if low <= peak_risk <= high:
+                risk_label = label
+                break
+
+        async with AsyncSessionFactory() as db:
+            case = PatientCase(
+                id=_uuid.uuid4(),
+                session_id=_uuid.UUID(session_id),
+                user_id=_uuid.UUID(user_id),
+                summary=data.get("summary", "AI 상담 세션 완료"),
+                keywords=data.get("keywords", []),
+                risk_label=risk_label,
+                risk_level=peak_risk,
+                recommended_specialties=data.get("recommended_specialties", []),
+            )
+            db.add(case)
+            await db.commit()
+
+        logger.info("patient_case_created", session_id=session_id, user_id=user_id)
+
+    except Exception as e:
+        logger.error("patient_case_error", session_id=session_id, error=str(e))
+
+
 async def _save_session_to_ltm(
     user_id: str,
     session_id: str,
@@ -259,6 +428,27 @@ async def chat_websocket(
     last_approach = "supportive"
     message_pair_count = 0
 
+    # 초기 평가 결과 로드 (세션 시작 시 한 번만)
+    assessment_context: str | None = await _load_assessment_context(session_id)
+    if assessment_context:
+        # 평가에서 산출된 초기 위험도를 peak_risk 기준으로 반영
+        try:
+            from ..core.database import AsyncSessionFactory
+            from ..models.assessment import AssessmentResult
+            from sqlalchemy import select as _select
+            import uuid as _uuid
+            async with AsyncSessionFactory() as _db:
+                _res = await _db.execute(
+                    _select(AssessmentResult).where(
+                        AssessmentResult.session_id == _uuid.UUID(session_id)
+                    )
+                )
+                _ar = _res.scalar_one_or_none()
+                if _ar:
+                    peak_risk = _ar.initial_risk_level
+        except Exception:
+            pass
+
     logger.info("ws_connected", session_id=session_id, user_id=payload.sub)
 
     try:
@@ -303,6 +493,7 @@ async def chat_websocket(
                 "input_blocked": False,
                 "final_response": None,
                 "long_term_context": None,  # memory_loader_node가 채움
+                "assessment_context": assessment_context,
             }
 
             # LangGraph 실행
@@ -409,6 +600,14 @@ async def chat_websocket(
                 memory=memory,
                 peak_risk=peak_risk,
                 therapeutic_approach=last_approach,
+            )
+        )
+        asyncio.create_task(
+            _create_patient_case(
+                user_id=payload.sub,
+                session_id=session_id,
+                memory=memory,
+                peak_risk=peak_risk,
             )
         )
     except Exception as e:

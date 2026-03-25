@@ -62,7 +62,7 @@ function ReviewCard({ item, token, onDone }: {
       {/* 헤더 */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <RiskBadge level={item.risk_level} showLabel />
+          <RiskBadge level={item.risk_level} />
           <span className="text-xs text-slate-400">{timeAgo(item.created_at)}</span>
         </div>
         <span className="text-xs text-slate-400 font-mono truncate max-w-[120px]">{item.session_id.slice(0, 8)}…</span>

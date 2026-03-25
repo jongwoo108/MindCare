@@ -35,3 +35,6 @@ class ConversationState(TypedDict):
 
     # 장기 메모리 컨텍스트 (ChromaDB에서 검색한 이전 세션 요약)
     long_term_context: Optional[str]
+
+    # 초기 정신건강 평가 컨텍스트 (PHQ/GAD 결과 요약 → 에이전트 system prompt 주입)
+    assessment_context: Optional[str]

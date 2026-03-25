@@ -25,11 +25,17 @@ async def crisis_node(state: ConversationState) -> dict:
     """
     llm = ChatOpenAI(model=settings.active_model, temperature=0.3)
 
-    # 위기 상황에서도 이전 세션 맥락 참고 (과거 자해 이력 등)
+    # 초기 평가 + 이전 세션 맥락 참고 (과거 자해 이력 등)
+    prefix_parts = []
+    assessment_context = state.get("assessment_context", "")
+    if assessment_context:
+        prefix_parts.append(assessment_context)
     long_term_context = state.get("long_term_context", "")
+    if long_term_context:
+        prefix_parts.append(long_term_context)
     crisis_prompt = (
-        f"{long_term_context}\n\n---\n\n{CRISIS_SYSTEM_PROMPT}"
-        if long_term_context else CRISIS_SYSTEM_PROMPT
+        "\n\n---\n\n".join(prefix_parts) + "\n\n---\n\n" + CRISIS_SYSTEM_PROMPT
+        if prefix_parts else CRISIS_SYSTEM_PROMPT
     )
 
     recent_messages = state["messages"][-5:]

@@ -6,47 +6,51 @@ interface Props {
 }
 
 const agentLabel: Record<string, string> = {
-  counseling: '상담',
+  counseling: '상담사',
   crisis: '위기지원',
   triage: '분석',
 }
 
 export default function ChatMessage({ msg }: Props) {
   const isUser = msg.role === 'user'
+  const isCrisis = msg.agent === 'crisis'
 
   return (
     <div className={`flex gap-3 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
       {/* 아바타 */}
       {!isUser && (
-        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm shrink-0 mt-1
-          ${msg.agent === 'crisis' ? 'bg-red-100 text-red-600' : 'bg-emerald-100 text-emerald-700'}`}>
-          {msg.agent === 'crisis' ? '🆘' : '🌿'}
+        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm shrink-0 mt-1 border
+          ${isCrisis
+            ? 'bg-red-950/40 border-red-900/30 text-red-300'
+            : 'bg-indigo-500/10 border-indigo-500/20 text-indigo-300'
+          }`}>
+          {isCrisis ? '🆘' : '🌙'}
         </div>
       )}
 
       <div className={`max-w-[75%] space-y-1 ${isUser ? 'items-end' : 'items-start'} flex flex-col`}>
-        {/* 에이전트 레이블 */}
+        {/* 에이전트 레이블 + 뱃지 */}
         {!isUser && msg.agent && (
           <div className="flex items-center gap-2 px-1">
-            <span className="text-xs text-slate-400">{agentLabel[msg.agent] ?? msg.agent}</span>
-            {msg.risk_level !== undefined && msg.risk_level > 0 && (
+            <span className="text-xs text-slate-600">{agentLabel[msg.agent] ?? msg.agent}</span>
+            {msg.risk_level !== undefined && msg.risk_level >= 4 && (
               <RiskBadge level={msg.risk_level} />
             )}
           </div>
         )}
 
         {/* 말풍선 */}
-        <div className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap
+        <div className={`px-4 py-3 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap
           ${isUser
-            ? 'bg-emerald-600 text-white rounded-tr-sm'
-            : msg.agent === 'crisis'
-              ? 'bg-red-50 border border-red-200 text-slate-800 rounded-tl-sm'
-              : 'bg-white border border-slate-200 text-slate-800 rounded-tl-sm shadow-sm'
+            ? 'bg-indigo-950 text-indigo-100 rounded-tr-sm border border-indigo-900/50'
+            : isCrisis
+              ? 'bg-red-950/30 border border-red-900/25 text-red-200 rounded-tl-sm'
+              : 'bg-[#111927] border border-white/[0.06] text-slate-200 rounded-tl-sm'
           }`}>
           {msg.content}
         </div>
 
-        <span className="text-xs text-slate-400 px-1">
+        <span className="text-xs text-slate-700 px-1">
           {msg.timestamp.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
         </span>
       </div>
