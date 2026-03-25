@@ -42,8 +42,9 @@ export default function DoctorSetupPage() {
         specialties,
       })
       navigate('/doctor/dashboard')
-    } catch (err: any) {
-      setError(err.response?.data?.detail || '프로필 등록에 실패했습니다.')
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { detail?: string } } }
+      setError(e.response?.data?.detail || '프로필 등록에 실패했습니다.')
     } finally {
       setLoading(false)
     }

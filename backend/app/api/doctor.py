@@ -226,15 +226,15 @@ async def list_cases(
         raise HTTPException(status_code=403, detail="승인된 의사만 케이스를 조회할 수 있습니다.")
 
     query = select(PatientCase).where(
-        PatientCase.is_visible == True,
-        PatientCase.is_matched == False,
+        PatientCase.is_visible.is_(True),
+        PatientCase.is_matched.is_(False),
         PatientCase.risk_level >= risk_min,
     )
 
     total_result = await db.execute(
         select(func.count()).select_from(PatientCase).where(
-            PatientCase.is_visible == True,
-            PatientCase.is_matched == False,
+            PatientCase.is_visible.is_(True),
+            PatientCase.is_matched.is_(False),
             PatientCase.risk_level >= risk_min,
         )
     )

@@ -38,7 +38,7 @@ export default function ChatPage() {
       setShowAssessment(true)
     })
     return () => reset()
-  }, [])
+  }, [setSession, reset])
 
   // 심화 검사 큐에서 다음 초대 카드를 꺼내는 헬퍼
   const advanceQueue = useCallback((queue: FollowUpRecommendation[]) => {

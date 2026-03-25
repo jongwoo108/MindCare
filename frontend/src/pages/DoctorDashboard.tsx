@@ -33,8 +33,9 @@ export default function DoctorDashboard() {
       setProfile(profileRes.data)
       setCases(casesRes.data.items)
       setMyMatches(matchesRes.data)
-    } catch (err: any) {
-      if (err.response?.status === 404) {
+    } catch (err: unknown) {
+      const e = err as { response?: { status?: number } }
+      if (e.response?.status === 404) {
         navigate('/doctor/setup')
       } else {
         setError('데이터를 불러오는데 실패했습니다.')
@@ -54,8 +55,9 @@ export default function DoctorDashboard() {
       setSelected(null)
       setMessage('')
       await load()
-    } catch (err: any) {
-      setError(err.response?.data?.detail || '매칭 요청에 실패했습니다.')
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { detail?: string } } }
+      setError(e.response?.data?.detail || '매칭 요청에 실패했습니다.')
     } finally {
       setSending(false)
     }

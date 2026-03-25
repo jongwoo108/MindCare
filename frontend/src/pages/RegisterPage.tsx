@@ -18,8 +18,9 @@ export default function RegisterPage() {
     try {
       await authApi.register(form.email, form.password, form.name, form.role)
       navigate(form.role === 'doctor' ? '/doctor/setup' : '/login')
-    } catch (err: any) {
-      setError(err.response?.data?.detail || '회원가입에 실패했습니다.')
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { detail?: string } } }
+      setError(e.response?.data?.detail || '회원가입에 실패했습니다.')
     } finally {
       setLoading(false)
     }
