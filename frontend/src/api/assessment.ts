@@ -23,6 +23,7 @@ export interface FollowUpRecommendation {
 
 export interface GreetingResult {
   content: string
+  quick_replies: string[]
   follow_ups: FollowUpRecommendation[]
 }
 

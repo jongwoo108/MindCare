@@ -31,6 +31,8 @@ export default function ChatPage() {
   const [followUpModalOpen, setFollowUpModalOpen] = useState(false)
 
   const [showMatchNotification, setShowMatchNotification] = useState(false)
+  // quick reply가 활성화된 메시지 id (마지막 AI 메시지에만 표시)
+  const [activeQuickId, setActiveQuickId] = useState<string | null>(null)
 
   useEffect(() => {
     sessionsApi.create().then((res) => {
@@ -59,13 +61,16 @@ export default function ChatPage() {
     let followUps: FollowUpRecommendation[] = []
     try {
       const res = await assessmentApi.greeting(sessionId)
+      const msgId = crypto.randomUUID()
       addMessage({
-        id: crypto.randomUUID(),
+        id: msgId,
         role: 'assistant',
         content: res.data.content,
         agent: 'counseling',
+        quick_replies: res.data.quick_replies,
         timestamp: new Date(),
       })
+      if (res.data.quick_replies?.length) setActiveQuickId(msgId)
       followUps = res.data.follow_ups ?? []
     } catch {
       addMessage({
@@ -135,9 +140,16 @@ export default function ChatPage() {
   const handleSend = () => {
     const content = input.trim()
     if (!content || !isConnected || isThinking) return
+    setActiveQuickId(null)
     send(content)
     setInput('')
   }
+
+  const handleQuickReply = useCallback((text: string) => {
+    if (!isConnected || isThinking) return
+    setActiveQuickId(null)
+    send(text)
+  }, [isConnected, isThinking, send])
 
   const handleDismissMatch = useCallback(() => setShowMatchNotification(false), [])
 
@@ -195,7 +207,12 @@ export default function ChatPage() {
         )}
 
         {messages.map((msg) => (
-          <ChatMessage key={msg.id} msg={msg} />
+          <ChatMessage
+            key={msg.id}
+            msg={msg}
+            showQuickReplies={msg.id === activeQuickId}
+            onQuickReply={handleQuickReply}
+          />
         ))}
 
         {/* 심화 검사 초대 카드 — 채팅 흐름 안에 자연스럽게 삽입 */}

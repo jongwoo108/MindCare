@@ -9,6 +9,7 @@ export interface Message {
   therapeutic_approach?: string
   safety_flags?: string[]
   crisis_escalated?: boolean
+  quick_replies?: string[]
   timestamp: Date
 }
 

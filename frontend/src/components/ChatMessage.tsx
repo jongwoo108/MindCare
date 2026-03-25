@@ -3,6 +3,8 @@ import RiskBadge from './RiskBadge'
 
 interface Props {
   msg: Message
+  showQuickReplies?: boolean
+  onQuickReply?: (text: string) => void
 }
 
 const agentLabel: Record<string, string> = {
@@ -11,7 +13,7 @@ const agentLabel: Record<string, string> = {
   triage: '분석',
 }
 
-export default function ChatMessage({ msg }: Props) {
+export default function ChatMessage({ msg, showQuickReplies, onQuickReply }: Props) {
   const isUser = msg.role === 'user'
   const isCrisis = msg.agent === 'crisis'
 
@@ -53,6 +55,21 @@ export default function ChatMessage({ msg }: Props) {
         <span className="text-xs text-slate-700 px-1">
           {msg.timestamp.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
         </span>
+
+        {/* Quick reply chips */}
+        {showQuickReplies && msg.quick_replies && msg.quick_replies.length > 0 && (
+          <div className="flex flex-wrap gap-2 pt-1">
+            {msg.quick_replies.map((reply) => (
+              <button
+                key={reply}
+                onClick={() => onQuickReply?.(reply)}
+                className="px-3.5 py-1.5 rounded-full text-xs font-medium border border-indigo-500/35 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20 hover:border-indigo-400/50 transition-all backdrop-blur-sm"
+              >
+                {reply}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )

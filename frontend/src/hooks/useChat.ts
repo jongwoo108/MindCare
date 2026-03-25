@@ -36,6 +36,7 @@ export function useChat(sessionId: string | null) {
         therapeutic_approach: data.metadata?.therapeutic_approach,
         safety_flags: data.metadata?.safety_flags,
         crisis_escalated: data.metadata?.crisis_escalated,
+        quick_replies: data.quick_replies,
         timestamp: new Date(),
       })
     }
