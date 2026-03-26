@@ -22,17 +22,17 @@ function ReportModal({ report, onClose }: { report: PsychiatricReport; onClose: 
     : null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md px-4 py-8">
-      <div className="bg-[#0d1420] border border-white/[0.08] rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md px-4 py-8">
+      <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
         {/* 헤더 */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.06] shrink-0">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 shrink-0">
           <div>
-            <p className="text-xs text-indigo-400 font-medium mb-0.5">정신과 사전 리포트</p>
-            <h2 className="text-sm font-semibold text-slate-200">AI 상담 분석 요약</h2>
+            <p className="text-xs text-white/50 font-medium mb-0.5">정신과 사전 리포트</p>
+            <h2 className="text-sm font-semibold text-white">AI 상담 분석 요약</h2>
           </div>
           <button
             onClick={onClose}
-            className="text-slate-600 hover:text-slate-400 transition-colors text-xs"
+            className="text-white/30 hover:text-white/60 transition-colors text-xs"
           >
             닫기
           </button>
@@ -41,23 +41,23 @@ function ReportModal({ report, onClose }: { report: PsychiatricReport; onClose: 
         <div className="overflow-y-auto flex-1 px-6 py-5 space-y-6">
           {/* 케이스 개요 */}
           <section>
-            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">케이스 개요</h3>
-            <div className="bg-[#111927] border border-white/[0.06] rounded-xl p-4 space-y-3">
+            <h3 className="text-xs font-semibold text-white/30 uppercase tracking-wider mb-3">케이스 개요</h3>
+            <div className="bg-white/10 border border-white/15 rounded-xl p-4 space-y-3">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${RISK_COLOR[c.risk_label] ?? 'text-slate-400 border-slate-800/40'}`}>
+                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${RISK_COLOR[c.risk_label] ?? 'text-white/50 border-white/20'}`}>
                   <span className="w-1.5 h-1.5 rounded-full bg-current" />
                   {c.risk_label} (위험도 {c.risk_level}/10)
                 </span>
                 {c.keywords.map(k => (
-                  <span key={k} className="px-2 py-0.5 rounded-full text-xs bg-[#1a2535] text-slate-500 border border-white/[0.06]">
+                  <span key={k} className="px-2 py-0.5 rounded-full text-xs bg-white/10 text-white/50 border border-white/15">
                     {k}
                   </span>
                 ))}
               </div>
-              <p className="text-sm text-slate-300 leading-relaxed">{c.summary}</p>
+              <p className="text-sm text-white/80 leading-relaxed">{c.summary}</p>
               {c.recommended_specialties.length > 0 && (
-                <p className="text-xs text-slate-600">
-                  추천 전문분야: <span className="text-slate-500">{c.recommended_specialties.join(', ')}</span>
+                <p className="text-xs text-white/30">
+                  추천 전문분야: <span className="text-white/50">{c.recommended_specialties.join(', ')}</span>
                 </p>
               )}
             </div>
@@ -66,27 +66,27 @@ function ReportModal({ report, onClose }: { report: PsychiatricReport; onClose: 
           {/* 초기 평가 점수 */}
           {a && (
             <section>
-              <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">초기 선별 평가</h3>
-              <div className="bg-[#111927] border border-white/[0.06] rounded-xl p-4 space-y-3">
+              <h3 className="text-xs font-semibold text-white/30 uppercase tracking-wider mb-3">초기 선별 평가</h3>
+              <div className="bg-white/10 border border-white/15 rounded-xl p-4 space-y-3">
                 {a.chief_complaint && (
                   <div>
-                    <p className="text-xs text-slate-600 mb-1">주 호소</p>
-                    <p className="text-sm text-slate-300">"{a.chief_complaint}"</p>
+                    <p className="text-xs text-white/40 mb-1">주 호소</p>
+                    <p className="text-sm text-white/70">"{a.chief_complaint}"</p>
                   </div>
                 )}
                 <div className="grid grid-cols-3 gap-3">
-                  <div className="bg-[#0d1420] rounded-lg p-3 text-center">
-                    <p className="text-xs text-slate-600 mb-1">PHQ 우울</p>
-                    <p className="text-lg font-semibold text-slate-200">{a.phq_score}<span className="text-xs text-slate-600">/15</span></p>
-                    <p className="text-xs text-slate-500 mt-0.5">{phqLevel}</p>
+                  <div className="bg-white/10 rounded-lg p-3 text-center">
+                    <p className="text-xs text-white/40 mb-1">PHQ 우울</p>
+                    <p className="text-lg font-semibold text-white">{a.phq_score}<span className="text-xs text-white/40">/15</span></p>
+                    <p className="text-xs text-white/50 mt-0.5">{phqLevel}</p>
                   </div>
-                  <div className="bg-[#0d1420] rounded-lg p-3 text-center">
-                    <p className="text-xs text-slate-600 mb-1">GAD 불안</p>
-                    <p className="text-lg font-semibold text-slate-200">{a.gad_score}<span className="text-xs text-slate-600">/9</span></p>
-                    <p className="text-xs text-slate-500 mt-0.5">{gadLevel}</p>
+                  <div className="bg-white/10 rounded-lg p-3 text-center">
+                    <p className="text-xs text-white/40 mb-1">GAD 불안</p>
+                    <p className="text-lg font-semibold text-white">{a.gad_score}<span className="text-xs text-white/40">/9</span></p>
+                    <p className="text-xs text-white/50 mt-0.5">{gadLevel}</p>
                   </div>
-                  <div className={`bg-[#0d1420] rounded-lg p-3 text-center ${a.suicide_flag ? 'border border-red-900/40' : ''}`}>
-                    <p className="text-xs text-slate-600 mb-1">자해 사고</p>
+                  <div className={`bg-white/10 rounded-lg p-3 text-center ${a.suicide_flag ? 'border border-red-500/40' : ''}`}>
+                    <p className="text-xs text-white/40 mb-1">자해 사고</p>
                     <p className={`text-sm font-semibold mt-1 ${a.suicide_flag ? 'text-red-400' : 'text-emerald-400'}`}>
                       {a.suicide_flag ? '보고됨' : '없음'}
                     </p>
@@ -99,35 +99,35 @@ function ReportModal({ report, onClose }: { report: PsychiatricReport; onClose: 
           {/* SOAP 임상 노트 */}
           {n ? (
             <section>
-              <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">
+              <h3 className="text-xs font-semibold text-white/30 uppercase tracking-wider mb-3">
                 SOAP 임상 노트
-                <span className="ml-2 text-slate-700 normal-case">· 메시지 {n.message_count}개 · {n.therapeutic_approach ?? '지지적 상담'}</span>
+                <span className="ml-2 text-white/20 normal-case">· 메시지 {n.message_count}개 · {n.therapeutic_approach ?? '지지적 상담'}</span>
               </h3>
               <div className="space-y-2">
                 {([
-                  { key: 'S', label: '주관적 (Subjective)', value: n.subjective, color: 'border-l-sky-700' },
-                  { key: 'O', label: '객관적 (Objective)',  value: n.objective,  color: 'border-l-indigo-700' },
-                  { key: 'A', label: '임상 평가 (Assessment)', value: n.assessment, color: 'border-l-violet-700' },
-                  { key: 'P', label: '계획 (Plan)',         value: n.plan,       color: 'border-l-emerald-700' },
+                  { key: 'S', label: '주관적 (Subjective)', value: n.subjective, color: 'border-l-sky-400/60' },
+                  { key: 'O', label: '객관적 (Objective)',  value: n.objective,  color: 'border-l-indigo-400/60' },
+                  { key: 'A', label: '임상 평가 (Assessment)', value: n.assessment, color: 'border-l-violet-400/60' },
+                  { key: 'P', label: '계획 (Plan)',         value: n.plan,       color: 'border-l-emerald-400/60' },
                 ] as const).map(({ key, label, value, color }) => (
-                  <div key={key} className={`bg-[#111927] border border-white/[0.06] border-l-2 ${color} rounded-xl rounded-l-sm px-4 py-3`}>
-                    <p className="text-xs text-slate-600 font-medium mb-1.5">{label}</p>
-                    <p className="text-sm text-slate-300 leading-relaxed">{value}</p>
+                  <div key={key} className={`bg-white/10 border border-white/10 border-l-2 ${color} rounded-xl rounded-l-sm px-4 py-3`}>
+                    <p className="text-xs text-white/40 font-medium mb-1.5">{label}</p>
+                    <p className="text-sm text-white/75 leading-relaxed">{value}</p>
                   </div>
                 ))}
               </div>
             </section>
           ) : (
             <section>
-              <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">SOAP 임상 노트</h3>
-              <div className="bg-[#111927] border border-white/[0.06] rounded-xl p-4 text-center text-sm text-slate-600">
+              <h3 className="text-xs font-semibold text-white/30 uppercase tracking-wider mb-3">SOAP 임상 노트</h3>
+              <div className="bg-white/10 border border-white/15 rounded-xl p-4 text-center text-sm text-white/30">
                 아직 생성되지 않았습니다.
               </div>
             </section>
           )}
 
           {/* 면책 고지 */}
-          <p className="text-xs text-slate-700 text-center pb-1">
+          <p className="text-xs text-white/20 text-center pb-1">
             이 리포트는 AI가 생성한 참고 자료입니다. 임상 진단을 대체하지 않습니다.
           </p>
         </div>
@@ -152,21 +152,23 @@ export default function DoctorDashboard() {
   const [reportLoading, setReportLoading] = useState(false)
 
   const load = useCallback(async () => {
+    setError('')
     try {
-      const [profileRes, casesRes, matchesRes] = await Promise.all([
-        doctorApi.getMyProfile(),
+      const profileRes = await doctorApi.getMyProfile()
+      setProfile(profileRes.data)
+
+      const [casesRes, matchesRes] = await Promise.allSettled([
         doctorApi.listCases(),
         doctorApi.listMyMatches(),
       ])
-      setProfile(profileRes.data)
-      setCases(casesRes.data.items)
-      setMyMatches(matchesRes.data)
+      if (casesRes.status === 'fulfilled') setCases(casesRes.value.data.items)
+      if (matchesRes.status === 'fulfilled') setMyMatches(matchesRes.value.data)
     } catch (err: unknown) {
       const e = err as { response?: { status?: number } }
       if (e.response?.status === 404) {
         navigate('/doctor/setup')
       } else {
-        setError('데이터를 불러오는데 실패했습니다.')
+        setError('프로필을 불러오는데 실패했습니다.')
       }
     } finally {
       setLoading(false)

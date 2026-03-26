@@ -273,6 +273,7 @@ export default function ChatPage() {
             recommendation={followUpInvite}
             onStart={handleInviteStart}
             onSkip={handleInviteSkip}
+            theme={theme}
           />
         )}
 

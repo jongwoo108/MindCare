@@ -113,6 +113,14 @@
 - [x] 재방문 사용자 UX — `GET /users/me/assessment-status` + `POST /sessions/{id}/returning-greeting`
   - 30일 이내 평가 이력 있으면 AI가 ChromaDB 기반 맞춤 인사 먼저 전달
 - [x] 회원가입 페이지 frosted glass UI (login-bg.png 배경)
+- [x] UI 전체 일관성 점검 — 잔여 하드코딩 컬러 제거
+  - `MatchNotification.tsx` — 매칭 수락/거절 모달 frosted glass 적용
+  - `FollowUpInviteCard.tsx` — 심화 검사 초대 카드 theme 시스템 연동
+  - `DoctorDashboard` ReportModal — 정신과 리포트 모달 frosted glass 적용
+- [x] 버그 수정
+  - React StrictMode 이중 마운트로 AI 인사 메시지 중복 표시 → `cancelled` 플래그로 해결
+  - 로딩 말풍선 색상 `theme.aiBubble` 연동
+  - 의사 대시보드 `Promise.all` → `Promise.allSettled`로 부분 실패 허용
 
 **산출물**: 의사 등록 → 환자 케이스 매칭 → 정신과 리포트 전체 흐름 동작 ✅
 
