@@ -30,7 +30,7 @@ class DoctorProfile(Base, TimestampMixin):
     max_patients: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     # admin 승인 여부 / 신규 환자 수락 여부
-    is_verified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    is_verified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     is_accepting: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
     matches: Mapped[list["DoctorPatientMatch"]] = relationship("DoctorPatientMatch", back_populates="doctor")  # noqa: F821

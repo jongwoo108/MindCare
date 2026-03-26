@@ -47,6 +47,34 @@ export interface MatchRecord {
   created_at: string
 }
 
+export interface PsychiatricReport {
+  match_id: string
+  case: {
+    summary: string
+    keywords: string[]
+    risk_label: string
+    risk_level: number
+    recommended_specialties: string[]
+    created_at: string
+  }
+  assessment: {
+    phq_score: number
+    gad_score: number
+    suicide_flag: boolean
+    initial_risk_level: number
+    chief_complaint: string | null
+  } | null
+  clinical_note: {
+    subjective: string
+    objective: string
+    assessment: string
+    plan: string
+    risk_level: number
+    therapeutic_approach: string | null
+    message_count: number
+  } | null
+}
+
 export const doctorApi = {
   registerProfile: (data: DoctorRegisterRequest) =>
     api.post<DoctorProfile>('/doctors/register', data),
@@ -76,4 +104,7 @@ export const doctorApi = {
       accept,
       patient_message: patientMessage || null,
     }),
+
+  getMatchReport: (matchId: string) =>
+    api.get<PsychiatricReport>(`/doctors/matches/${matchId}/report`),
 }

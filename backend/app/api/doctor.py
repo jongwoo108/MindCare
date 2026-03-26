@@ -11,6 +11,8 @@ from ..core.security import verify_token, TokenPayload
 from ..models.doctor import DoctorProfile
 from ..models.patient_case import PatientCase
 from ..models.match import DoctorPatientMatch
+from ..models.clinical_note import ClinicalNote
+from ..models.assessment import AssessmentResult
 
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/doctors", tags=["doctors"])
@@ -393,3 +395,129 @@ async def respond_to_match(
     await db.flush()
     logger.info("match_responded", match_id=match_id, accepted=body.accept)
     return MatchResponse.from_orm(match)
+
+
+# ── Psychiatric Report (매칭 수락 후 의사용 정신과 리포트) ────────────────────
+
+class AssessmentSection(BaseModel):
+    phq_score: int
+    gad_score: int
+    suicide_flag: bool
+    initial_risk_level: int
+    chief_complaint: str | None
+
+
+class ClinicalNoteSection(BaseModel):
+    subjective: str
+    objective: str
+    assessment: str
+    plan: str
+    risk_level: int
+    therapeutic_approach: str | None
+    message_count: int
+
+
+class CaseSection(BaseModel):
+    summary: str
+    keywords: list[str]
+    risk_label: str
+    risk_level: int
+    recommended_specialties: list[str]
+    created_at: str
+
+
+class PsychiatricReportResponse(BaseModel):
+    match_id: str
+    case: CaseSection
+    assessment: AssessmentSection | None       # 초기 평가 (없을 수 있음)
+    clinical_note: ClinicalNoteSection | None  # SOAP 노트 (없을 수 있음)
+
+
+@router.get("/matches/{match_id}/report", response_model=PsychiatricReportResponse)
+async def get_match_report(
+    match_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: TokenPayload = Depends(get_current_user),
+):
+    """
+    수락된 매칭의 정신과 리포트 조회.
+    - 해당 매칭을 요청한 의사만 접근 가능
+    - status='accepted'인 경우만 리포트 제공
+    - PatientCase 요약 + SOAP 임상 노트 + 초기 평가 점수를 통합 반환
+    """
+    if current_user.role != "doctor":
+        raise HTTPException(status_code=403, detail="의사 계정만 접근할 수 있습니다.")
+
+    # 본인 프로필 확인
+    profile_result = await db.execute(
+        select(DoctorProfile).where(DoctorProfile.user_id == uuid.UUID(current_user.sub))
+    )
+    profile = profile_result.scalar_one_or_none()
+    if not profile:
+        raise HTTPException(status_code=404, detail="프로필이 없습니다.")
+
+    # 매칭 조회 — 본인 매칭인지 확인
+    match_result = await db.execute(
+        select(DoctorPatientMatch).where(
+            DoctorPatientMatch.id == uuid.UUID(match_id),
+            DoctorPatientMatch.doctor_id == profile.id,
+        )
+    )
+    match = match_result.scalar_one_or_none()
+    if not match:
+        raise HTTPException(status_code=404, detail="매칭을 찾을 수 없습니다.")
+    if match.status != "accepted":
+        raise HTTPException(status_code=403, detail="수락된 매칭만 리포트를 조회할 수 있습니다.")
+
+    # PatientCase 조회
+    case_result = await db.execute(
+        select(PatientCase).where(PatientCase.id == match.patient_case_id)
+    )
+    case = case_result.scalar_one_or_none()
+    if not case:
+        raise HTTPException(status_code=404, detail="케이스 정보를 찾을 수 없습니다.")
+
+    # ClinicalNote (SOAP) 조회 — session_id 경유
+    note_result = await db.execute(
+        select(ClinicalNote)
+        .where(ClinicalNote.session_id == case.session_id)
+        .order_by(ClinicalNote.created_at.desc())
+        .limit(1)
+    )
+    note = note_result.scalar_one_or_none()
+
+    # AssessmentResult 조회
+    ar_result = await db.execute(
+        select(AssessmentResult).where(AssessmentResult.session_id == case.session_id)
+    )
+    ar = ar_result.scalar_one_or_none()
+
+    logger.info("report_accessed", match_id=match_id, doctor_id=str(profile.id))
+
+    return PsychiatricReportResponse(
+        match_id=match_id,
+        case=CaseSection(
+            summary=case.summary,
+            keywords=case.keywords or [],
+            risk_label=case.risk_label,
+            risk_level=case.risk_level,
+            recommended_specialties=case.recommended_specialties or [],
+            created_at=case.created_at.isoformat(),
+        ),
+        assessment=AssessmentSection(
+            phq_score=ar.phq_score,
+            gad_score=ar.gad_score,
+            suicide_flag=ar.suicide_flag,
+            initial_risk_level=ar.initial_risk_level,
+            chief_complaint=ar.chief_complaint,
+        ) if ar else None,
+        clinical_note=ClinicalNoteSection(
+            subjective=note.subjective,
+            objective=note.objective,
+            assessment=note.assessment,
+            plan=note.plan,
+            risk_level=note.risk_level,
+            therapeutic_approach=note.therapeutic_approach,
+            message_count=note.message_count,
+        ) if note else None,
+    )

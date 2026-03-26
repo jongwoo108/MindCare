@@ -13,7 +13,7 @@ class User(Base, TimestampMixin):
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     role: Mapped[str] = mapped_column(
-        SAEnum("user", "counselor", "admin", name="user_role"),
+        SAEnum("user", "counselor", "admin", "doctor", name="user_role"),
         nullable=False,
         default="user",
     )
