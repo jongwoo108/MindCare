@@ -66,13 +66,17 @@ export default function ChatPage() {
   }, [addMessage])
 
   useEffect(() => {
+    let cancelled = false
+
     const init = async () => {
       const sessionRes = await sessionsApi.create()
+      if (cancelled) return
       const sid = sessionRes.data.id
       setSession(sid)
 
       try {
         const statusRes = await assessmentApi.getStatus()
+        if (cancelled) return
         if (statusRes.data.has_recent) {
           // 재방문 — AI가 먼저 인사
           handleReturningGreeting(sid)
@@ -81,12 +85,11 @@ export default function ChatPage() {
           setShowAssessment(true)
         }
       } catch {
-        // 상태 조회 실패 시 안전하게 평가 모달 표시
-        setShowAssessment(true)
+        if (!cancelled) setShowAssessment(true)
       }
     }
     init()
-    return () => reset()
+    return () => { cancelled = true; reset() }
   }, [setSession, reset, handleReturningGreeting])
 
   // 심화 검사 큐에서 다음 초대 카드를 꺼내는 헬퍼
@@ -279,12 +282,12 @@ export default function ChatPage() {
             <div className="w-8 h-8 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 flex items-center justify-center text-sm shrink-0 mt-1">
               🌙
             </div>
-            <div className="bg-[#111927] border border-white/[0.06] rounded-2xl rounded-tl-sm px-4 py-3">
+            <div className={`${theme.aiBubble} rounded-2xl rounded-tl-sm px-4 py-3`}>
               <div className="flex gap-1.5 items-center h-4">
                 {[0, 1, 2].map((i) => (
                   <span
                     key={i}
-                    className="w-1.5 h-1.5 bg-slate-600 rounded-full animate-bounce"
+                    className="w-1.5 h-1.5 bg-white/40 rounded-full animate-bounce"
                     style={{ animationDelay: `${i * 0.18}s` }}
                   />
                 ))}
