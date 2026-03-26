@@ -2,7 +2,7 @@
 
 > LangGraph 기반 멀티에이전트 정신건강 상담 시스템
 
-[![CI](https://github.com/your-repo/mindcare-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/your-repo/mindcare-ai/actions/workflows/ci.yml)
+[![CI](https://github.com/jongwoo108/MindCare/actions/workflows/ci.yml/badge.svg)](https://github.com/jongwoo108/MindCare/actions/workflows/ci.yml)
 
 임상 맥락을 이해하는 멀티에이전트 AI 상담 시스템. **LangGraph StateGraph** 기반 에이전트 오케스트레이션, 실시간 위기 개입, Expert-in-the-loop 파이프라인, 3계층 메모리 아키텍처를 갖춘 풀스택 프로토타입입니다.
 
