@@ -3,6 +3,7 @@ from sqlalchemy import Integer, Text, Enum as SAEnum, ForeignKey, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID
 from .base import Base, TimestampMixin
+from ..core.encryption import EncryptedText
 
 
 class Message(Base, TimestampMixin):
@@ -15,7 +16,7 @@ class Message(Base, TimestampMixin):
     role: Mapped[str] = mapped_column(
         SAEnum("user", "assistant", "system", name="message_role"), nullable=False
     )
-    content: Mapped[str] = mapped_column(Text, nullable=False)  # Phase 2: AES-256 암호화 예정
+    content: Mapped[str] = mapped_column(EncryptedText, nullable=False)  # Fernet 암호화 (at-rest)
     agent_type: Mapped[str | None] = mapped_column(
         SAEnum("triage", "counseling", "crisis", name="agent_type"), nullable=True
     )

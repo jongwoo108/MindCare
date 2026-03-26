@@ -28,9 +28,9 @@
 - [x] 세션 메모리 (PostgreSQL) + 메시지 영속화
 - [x] 세션 자동 요약 (`session_summarizer.py` — LLM 기반 3-5문장 요약)
 - [x] 장기 메모리 (ChromaDB) + 의미 유사도 컨텍스트 검색
-- [x] 임상 노트 자동 생성 (SOAP 형식)
-- [ ] 감사 로그 시스템 (포트폴리오 범위 외)
-- [ ] 데이터 암호화 (AES-256 저장, TLS 전송 — 프로덕션 배포 시 적용)
+- [x] 임상 노트 자동 생성 (SOAP 형식 — 세션 종료 시 LLM 자동 생성)
+- [x] 감사 로그 시스템 (`audit_logs` 테이블 + `log_access()` 헬퍼 — PHI 접근 기록)
+- [x] 데이터 암호화 (Fernet 대칭키 — `Message.content` + SOAP 노트 4개 컬럼 at-rest 암호화)
 
 **산출물**: 다회기 대화에서 맥락을 유지하며 안전하게 응답 ✅ (시나리오 4 동작)
 
@@ -105,10 +105,16 @@
 - [x] DB 모델 (DoctorProfile / PatientCase / DoctorPatientMatch)
 - [x] Alembic 마이그레이션 (migration 005)
 - [x] REST API (doctor.py) — 프로필 CRUD + 매칭 생성/수락/거절/완료
-- [x] 의사 프로필 등록 페이지 (DoctorSetupPage.tsx)
-- [x] 의사 매칭 대시보드 (DoctorDashboard.tsx)
+- [x] 의사 프로필 등록 페이지 (DoctorSetupPage.tsx) — frosted glass UI
+- [x] 의사 매칭 대시보드 (DoctorDashboard.tsx) — frosted glass UI (dashboard.png 배경)
+- [x] 정신과 사전 리포트 (`GET /doctors/matches/{id}/report`)
+  - PatientCase 요약 + SOAP 임상 노트 + PHQ/GAD 평가 점수 통합 반환
+  - DoctorDashboard ReportModal — 케이스 개요 / 초기 선별 평가 / SOAP 섹션
+- [x] 재방문 사용자 UX — `GET /users/me/assessment-status` + `POST /sessions/{id}/returning-greeting`
+  - 30일 이내 평가 이력 있으면 AI가 ChromaDB 기반 맞춤 인사 먼저 전달
+- [x] 회원가입 페이지 frosted glass UI (login-bg.png 배경)
 
-**산출물**: 의사 등록 → 환자 케이스 매칭 전체 흐름 동작 ✅
+**산출물**: 의사 등록 → 환자 케이스 매칭 → 정신과 리포트 전체 흐름 동작 ✅
 
 ---
 
@@ -173,5 +179,8 @@
 | UI 테마 시스템 | ✅ 완료 | 21개 색조 토큰 × 4시간대 |
 | 별 반짝임 애니메이션 | ✅ 완료 | CSS `star-twinkle` + 시간대 밀도 |
 | 의사-환자 매칭 | ✅ 완료 | DoctorProfile + PatientCase + Match |
+| 정신과 사전 리포트 | ✅ 완료 | SOAP + PHQ/GAD + 케이스 요약 통합 |
+| 감사 로그 | ✅ 완료 | PHI 접근 기록 (audit_logs 테이블) |
+| 데이터 암호화 | ✅ 완료 | Fernet at-rest (메시지 + SOAP 노트) |
 | CI/CD | ✅ 완료 | GitHub Actions (ruff + pytest + tsc + eslint + docker build) |
 | AWS 배포 | 🔜 다음 | 향후 Phase |

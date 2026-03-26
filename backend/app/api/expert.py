@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.database import get_db
 from ..core.security import verify_token
+from ..core.audit import log_access
 from ..models.expert_review import ExpertReview
 from ..schemas.expert import (
     ExpertQueueItem,
@@ -39,7 +40,13 @@ async def get_review_queue(
     token: str = Query(...),
 ):
     """pending 상태인 전문가 리뷰 대기열 조회."""
-    _require_expert(token)
+    payload = _require_expert(token)
+    log_access(
+        user_id=payload.sub,
+        user_role=payload.role,
+        action="view_expert_queue",
+        resource_type="expert_review",
+    )
 
     result = await db.execute(
         select(ExpertReview)

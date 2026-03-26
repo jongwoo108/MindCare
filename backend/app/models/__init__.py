@@ -8,9 +8,10 @@ from .assessment import AssessmentResult
 from .doctor import DoctorProfile
 from .patient_case import PatientCase
 from .match import DoctorPatientMatch
+from .audit_log import AuditLog
 
 __all__ = [
     "Base", "TimestampMixin",
     "User", "Session", "Message", "ExpertReview", "ClinicalNote", "AssessmentResult",
-    "DoctorProfile", "PatientCase", "DoctorPatientMatch",
+    "DoctorProfile", "PatientCase", "DoctorPatientMatch", "AuditLog",
 ]

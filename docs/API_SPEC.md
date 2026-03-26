@@ -308,6 +308,127 @@ Authorization: Bearer {counselor_access_token}
 
 ---
 
+---
+
+## 의사 플랫폼 (Doctor Platform)
+
+> 권한: `role=doctor` (프로필 등록/케이스/매칭), `role=user` (매칭 수락/거절)
+
+### POST /doctors/register
+의사 프로필 등록
+
+**Request Body**
+```json
+{
+  "license_number": "12345",
+  "hospital": "서울 정신건강 의원",
+  "department": "정신건강의학과",
+  "specialties": ["우울증", "불안장애"],
+  "bio": "string",
+  "max_patients": 20
+}
+```
+
+---
+
+### GET /doctors/cases
+매칭 가능한 익명화 환자 케이스 목록
+
+**Query Parameters**: `page`, `limit`, `risk_min`
+
+**Response 200**
+```json
+{
+  "items": [
+    {
+      "id": "uuid",
+      "summary": "string",
+      "keywords": ["불안", "수면 문제"],
+      "risk_label": "주의 필요",
+      "recommended_specialties": ["불안장애"],
+      "is_matched": false,
+      "created_at": "2024-01-01T00:00:00Z"
+    }
+  ],
+  "total": 10, "page": 1, "limit": 20
+}
+```
+
+---
+
+### POST /doctors/matches
+매칭 요청 전송 (의사 → 환자)
+
+**Request Body**
+```json
+{
+  "patient_case_id": "uuid",
+  "doctor_message": "string"
+}
+```
+
+---
+
+### GET /doctors/matches/{match_id}/report
+정신과 사전 리포트 조회 (수락된 매칭만, 감사 로그 기록)
+
+**Response 200**
+```json
+{
+  "match_id": "uuid",
+  "case": {
+    "summary": "string",
+    "keywords": ["우울", "무기력"],
+    "risk_label": "주의 필요",
+    "risk_level": 5,
+    "recommended_specialties": ["우울증"],
+    "created_at": "2024-01-01T00:00:00Z"
+  },
+  "assessment": {
+    "phq_score": 10, "gad_score": 6,
+    "suicide_flag": false,
+    "initial_risk_level": 4,
+    "chief_complaint": "string"
+  },
+  "clinical_note": {
+    "subjective": "string", "objective": "string",
+    "assessment": "string", "plan": "string",
+    "risk_level": 5, "therapeutic_approach": "cbt",
+    "message_count": 24
+  }
+}
+```
+
+---
+
+### GET /users/me/assessment-status
+재방문 여부 확인 (30일 이내 평가 이력)
+
+**Response 200**
+```json
+{
+  "has_recent": true,
+  "days_since_last": 7,
+  "last_risk_level": 4,
+  "last_chief_complaint": "string"
+}
+```
+
+---
+
+### POST /sessions/{session_id}/returning-greeting
+재방문 AI 인사 생성 (ChromaDB 장기 메모리 기반)
+
+**Response 200**
+```json
+{
+  "content": "다시 만나서 반가워요...",
+  "quick_replies": ["감정 이야기", "변화 시도", "관계 문제"]
+}
+```
+
+---
+
 ## 오류 응답 형식
 
 ```json

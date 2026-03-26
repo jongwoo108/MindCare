@@ -3,6 +3,7 @@ from sqlalchemy import String, Integer, Text, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.dialects.postgresql import UUID
 from .base import Base, TimestampMixin
+from ..core.encryption import EncryptedText
 
 
 class ClinicalNote(Base, TimestampMixin):
@@ -28,11 +29,11 @@ class ClinicalNote(Base, TimestampMixin):
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
 
-    # SOAP 섹션
-    subjective: Mapped[str] = mapped_column(Text, nullable=False)
-    objective: Mapped[str] = mapped_column(Text, nullable=False)
-    assessment: Mapped[str] = mapped_column(Text, nullable=False)
-    plan: Mapped[str] = mapped_column(Text, nullable=False)
+    # SOAP 섹션 — Fernet 암호화 (at-rest)
+    subjective: Mapped[str] = mapped_column(EncryptedText, nullable=False)
+    objective: Mapped[str] = mapped_column(EncryptedText, nullable=False)
+    assessment: Mapped[str] = mapped_column(EncryptedText, nullable=False)
+    plan: Mapped[str] = mapped_column(EncryptedText, nullable=False)
 
     # 메타데이터
     risk_level: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

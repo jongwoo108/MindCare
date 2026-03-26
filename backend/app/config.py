@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_access_token_expire_minutes: int = 60
     jwt_refresh_token_expire_days: int = 30
+    encryption_key: str = "change-me-fernet-key"  # Fernet.generate_key() 로 생성
 
     # Safety thresholds (SAFETY_PROTOCOL.md 기준)
     crisis_risk_threshold: int = 7

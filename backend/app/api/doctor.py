@@ -8,6 +8,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 from ..core.database import get_db
 from ..core.security import verify_token, TokenPayload
+from ..core.audit import log_access
 from ..models.doctor import DoctorProfile
 from ..models.patient_case import PatientCase
 from ..models.match import DoctorPatientMatch
@@ -493,6 +494,14 @@ async def get_match_report(
     ar = ar_result.scalar_one_or_none()
 
     logger.info("report_accessed", match_id=match_id, doctor_id=str(profile.id))
+    log_access(
+        user_id=current_user.sub,
+        user_role=current_user.role,
+        action="view_psychiatric_report",
+        resource_type="psychiatric_report",
+        resource_id=match_id,
+        detail=f"case_id={match.patient_case_id}",
+    )
 
     return PsychiatricReportResponse(
         match_id=match_id,

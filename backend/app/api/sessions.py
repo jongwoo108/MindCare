@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.database import get_db
 from ..core.security import verify_token, TokenPayload
+from ..core.audit import log_access
 from ..models.session import Session
 from ..models.clinical_note import ClinicalNote
 from ..schemas.session import SessionResponse, SessionListResponse
@@ -115,6 +116,14 @@ async def get_clinical_notes(
         .order_by(ClinicalNote.created_at.desc())
     )
     notes = result.scalars().all()
+
+    log_access(
+        user_id=current_user.sub,
+        user_role=current_user.role,
+        action="view_clinical_notes",
+        resource_type="clinical_note",
+        resource_id=session_id,
+    )
 
     return ClinicalNotesListResponse(
         notes=[ClinicalNoteResponse.from_orm_note(n) for n in notes]

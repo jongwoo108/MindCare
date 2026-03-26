@@ -158,37 +158,61 @@ class ConversationState(TypedDict):
 
 ```
 users
-  id (UUID PK) | email | hashed_password | name | role | is_active
+  id (UUID PK) | email | hashed_password | name
+  role (user/counselor/admin/doctor) | is_active
+  created_at | updated_at
 
 sessions
-  id (UUID PK) | user_id (FK) | status | therapeutic_approach
-  risk_level | message_count | last_activity_at
+  id (UUID PK) | user_id (FK) | status (active/completed/crisis)
+  therapeutic_approach | risk_level | message_count | last_activity_at
+  created_at | updated_at
 
-messages
-  id (UUID PK) | session_id (FK) | role | content
-  agent_type | risk_level | metadata_json
+messages                                  ← Fernet 암호화
+  id (UUID PK) | session_id (FK) | role (user/assistant/system)
+  content [ENCRYPTED] | agent_type | risk_level | metadata_json
+  created_at | updated_at
+
+clinical_notes                            ← Fernet 암호화
+  id (UUID PK) | session_id (FK) | user_id (FK)
+  subjective [ENCRYPTED] | objective [ENCRYPTED]
+  assessment [ENCRYPTED] | plan [ENCRYPTED]
+  risk_level | therapeutic_approach | message_count
+  created_at | updated_at
+
+assessment_results
+  id (UUID PK) | session_id (FK) | user_id (FK)
+  phq_score | gad_score | suicide_flag | initial_risk_level
+  chief_complaint | created_at | updated_at
 
 expert_reviews
   id (UUID PK) | session_id (FK) | user_id (FK)
-  ai_response | risk_level | risk_factors | context_summary
+  ai_response | risk_level | risk_factors (JSON) | context_summary
   status (pending/approved/modified)
-  reviewer_id (FK) | modified_content | feedback_category | feedback_note
-  reviewed_at
+  reviewer_id | modified_content | feedback_category | feedback_note
+  reviewed_at | created_at | updated_at
 
 doctor_profiles
-  id (UUID PK) | user_id (FK) | specialties (JSON) | credentials (JSON)
-  bio | years_experience | languages (JSON) | session_fee
-  is_accepting_patients | is_verified
+  id (UUID PK) | user_id (FK) | license_number | hospital | department
+  specialties (JSON) | bio | max_patients
+  is_verified | is_accepting
+  created_at | updated_at
 
 patient_cases
-  id (UUID PK) | user_id (FK) | chief_complaint | diagnosis_history (JSON)
-  preferred_approach | severity_level | is_active
+  id (UUID PK) | session_id (FK) | user_id (FK)
+  summary | keywords (JSON) | risk_label | risk_level
+  recommended_specialties (JSON) | is_matched | is_visible
+  created_at | updated_at
 
 doctor_patient_matches
-  id (UUID PK) | doctor_id (FK → doctor_profiles) | patient_id (FK → users)
-  case_id (FK → patient_cases) | status (pending/accepted/rejected/completed)
-  match_score | doctor_notes | patient_notes
+  id (UUID PK) | doctor_id (FK → doctor_profiles) | patient_case_id (FK)
+  user_id (FK) | status (pending/accepted/rejected/cancelled)
+  doctor_message | patient_message
   created_at | updated_at
+
+audit_logs                                ← PHI 접근 감사 기록
+  id (UUID PK) | user_id | user_role
+  action | resource_type | resource_id | detail
+  ip_address | created_at
 ```
 
 ## 7. 기술 스택
@@ -272,4 +296,64 @@ ChatPage mount
           → "시작하기" → FollowUpModal (심화 검사)
           → "건너뛸게요" → 다음 항목으로 이동
       → 큐 소진 → MatchNotification 표시
+```
+
+---
+
+## 9. 보안 아키텍처
+
+### 9-1. 데이터 암호화 (At-rest)
+
+```
+core/encryption.py — EncryptedText (SQLAlchemy TypeDecorator)
+  ┌─────────────────────────────────────────────────────┐
+  │  저장 (process_bind_param)                           │
+  │    plaintext → Fernet.encrypt() → ciphertext (DB)   │
+  │                                                     │
+  │  조회 (process_result_value)                         │
+  │    ciphertext (DB) → Fernet.decrypt() → plaintext   │
+  └─────────────────────────────────────────────────────┘
+
+암호화 적용 컬럼:
+  - messages.content              (상담 대화 내용)
+  - clinical_notes.subjective     (SOAP — 주관적)
+  - clinical_notes.objective      (SOAP — 객관적)
+  - clinical_notes.assessment     (SOAP — 임상 평가)
+  - clinical_notes.plan           (SOAP — 계획)
+
+키 관리:
+  - ENCRYPTION_KEY 환경변수 (Fernet 32-byte base64 키)
+  - 키 분실 시 기존 데이터 복호화 불가
+```
+
+### 9-2. 감사 로그 (Audit Log)
+
+PHI(Protected Health Information) 접근 시마다 `audit_logs` 테이블에 기록됩니다.
+
+| 엔드포인트 | action | resource_type |
+|-----------|--------|---------------|
+| `GET /sessions/{id}/clinical-notes` | `view_clinical_notes` | `clinical_note` |
+| `GET /doctors/matches/{id}/report` | `view_psychiatric_report` | `psychiatric_report` |
+| `GET /expert/queue` | `view_expert_queue` | `expert_review` |
+
+```python
+# 사용법 — API 핸들러에서 await 없이 호출 (비동기 백그라운드)
+log_access(
+    user_id=current_user.sub,
+    user_role=current_user.role,
+    action="view_psychiatric_report",
+    resource_type="psychiatric_report",
+    resource_id=match_id,
+)
+```
+
+### 9-3. 인증 & 권한
+
+```
+JWT (HS256) — 만료: 60분
+  role 클레임 기반 접근 제어:
+    user      → /ws/chat, /sessions, /users/me/*
+    doctor    → /doctors/* (케이스 게시판, 매칭, 리포트)
+    counselor → /expert/* (리뷰 큐, 피드백)
+    admin     → 모든 엔드포인트
 ```
