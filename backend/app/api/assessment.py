@@ -1,9 +1,10 @@
 import uuid
 import json
 import structlog
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import select, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from langchain_openai import ChatOpenAI
@@ -22,6 +23,7 @@ from ..schemas.assessment import (
 
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/sessions", tags=["assessment"])
+users_router = APIRouter(prefix="/users", tags=["users"])
 bearer = HTTPBearer()
 
 
@@ -368,3 +370,151 @@ async def submit_followup(
         additional_score=additional_score,
         updated_risk_level=updated_risk,
     )
+
+
+# ── 사용자 평가 상태 조회 ───────────────────────────────────────────
+
+class AssessmentStatusResponse(BaseModel):
+    has_recent: bool                  # 30일 이내 평가 이력 존재 여부
+    days_since_last: int | None = None
+    last_risk_level: int | None = None
+    last_chief_complaint: str | None = None
+
+
+@users_router.get("/me/assessment-status", response_model=AssessmentStatusResponse)
+async def get_assessment_status(
+    db: AsyncSession = Depends(get_db),
+    current_user: TokenPayload = Depends(get_current_user),
+):
+    """
+    현재 사용자의 최근 평가 이력을 반환한다.
+    30일 이내 평가가 있으면 has_recent=True → 재방문 인사 흐름으로 분기.
+    """
+    result = await db.execute(
+        select(AssessmentResult)
+        .where(AssessmentResult.user_id == uuid.UUID(current_user.sub))
+        .order_by(desc(AssessmentResult.created_at))
+        .limit(1)
+    )
+    ar = result.scalar_one_or_none()
+
+    if not ar:
+        return AssessmentStatusResponse(has_recent=False)
+
+    created = ar.created_at
+    if created.tzinfo is None:
+        created = created.replace(tzinfo=timezone.utc)
+    days_since = (datetime.now(timezone.utc) - created).days
+
+    return AssessmentStatusResponse(
+        has_recent=days_since < 30,
+        days_since_last=days_since,
+        last_risk_level=ar.initial_risk_level,
+        last_chief_complaint=ar.chief_complaint,
+    )
+
+
+# ── 재방문 인사 생성 ────────────────────────────────────────────────
+
+_RETURNING_GREETING_SYSTEM = """당신은 따뜻하고 공감 능력이 뛰어난 정신건강 상담 전문가입니다.
+지금 내담자는 이전에 상담을 받은 적 있는 재방문자입니다.
+설문 없이 바로 대화를 이어갑니다.
+
+역할:
+- 재방문을 진심으로 따뜻하게 맞이하세요.
+- 이전 상담 맥락이 있다면 자연스럽게, 부담 없이 참조하세요.
+- 오늘 어떤 이야기를 나누고 싶은지 부드럽게 물어보세요.
+
+반드시 지켜야 할 원칙:
+1. content는 3문장 이내로 작성하세요.
+2. 진단명, 점수, 숫자는 절대 언급하지 마세요.
+3. quick_replies는 내담자가 클릭할 수 있는 짧은 답변 선택지 3개입니다 (10자 이내).
+4. 말투: "~네요", "~셨겠어요", "이야기해볼까요?" 처럼 친근하고 따뜻하게.
+
+반드시 아래 JSON 형식으로만 응답하세요 (다른 텍스트 없이):
+{
+  "content": "...",
+  "quick_replies": ["...", "...", "..."]
+}"""
+
+
+@router.post("/{session_id}/returning-greeting", response_model=GreetingResponse)
+async def generate_returning_greeting(
+    session_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: TokenPayload = Depends(get_current_user),
+):
+    """
+    재방문 사용자를 위한 AI 첫 인사.
+    초기 평가 없이 ChromaDB 장기 메모리 + 마지막 평가 이력을 바탕으로 맥락적 인사를 생성.
+    """
+    session_result = await db.execute(
+        select(Session).where(
+            Session.id == uuid.UUID(session_id),
+            Session.user_id == uuid.UUID(current_user.sub),
+        )
+    )
+    if not session_result.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="세션을 찾을 수 없습니다.")
+
+    # 마지막 평가 이력 조회
+    ar_result = await db.execute(
+        select(AssessmentResult)
+        .where(AssessmentResult.user_id == uuid.UUID(current_user.sub))
+        .order_by(desc(AssessmentResult.created_at))
+        .limit(1)
+    )
+    last_ar = ar_result.scalar_one_or_none()
+
+    # ChromaDB 장기 메모리 조회
+    long_term_context = ""
+    try:
+        from ..core.chroma_client import get_chroma_client
+        from ..memory.long_term_memory import LongTermMemory
+        chroma = await get_chroma_client()
+        ltm = LongTermMemory(chroma)
+        query = last_ar.chief_complaint if last_ar and last_ar.chief_complaint else "상담 감정 고민"
+        long_term_context = await ltm.retrieve_context(user_id=current_user.sub, query=query)
+    except Exception as e:
+        logger.debug("ltm_unavailable_for_returning_greeting", error=str(e))
+
+    # 프롬프트 구성
+    prompt_lines = []
+    if last_ar:
+        created = last_ar.created_at
+        if created.tzinfo is None:
+            created = created.replace(tzinfo=timezone.utc)
+        days = (datetime.now(timezone.utc) - created).days
+        prompt_lines.append(f"마지막 상담: {days}일 전")
+        if last_ar.chief_complaint:
+            prompt_lines.append(f"당시 주 호소: {last_ar.chief_complaint}")
+
+    if long_term_context:
+        prompt_lines.append(f"\n{long_term_context}")
+
+    prompt = "\n".join(prompt_lines) if prompt_lines else "재방문 내담자입니다. 이전 맥락 정보가 없습니다."
+
+    settings = get_settings()
+    llm = ChatOpenAI(model=settings.active_model, temperature=0.7)
+
+    content = "다시 찾아주셨군요. 반갑습니다. 오늘은 어떤 이야기를 나눠볼까요?"
+    quick_replies = ["지난 이야기 이어서요", "새로운 고민이 생겼어요", "그냥 이야기하고 싶어요"]
+
+    try:
+        response = await llm.ainvoke([
+            SystemMessage(content=_RETURNING_GREETING_SYSTEM),
+            HumanMessage(content=prompt),
+        ])
+        raw = response.content.strip()
+        if raw.startswith("```"):
+            raw = raw.split("```")[1]
+            if raw.startswith("json"):
+                raw = raw[4:]
+        parsed = json.loads(raw)
+        content = parsed.get("content", content)
+        quick_replies = parsed.get("quick_replies", quick_replies)
+    except Exception as e:
+        logger.error("returning_greeting_failed", error=str(e))
+
+    logger.info("returning_greeting_generated", session_id=session_id, user_id=current_user.sub)
+    return GreetingResponse(content=content, quick_replies=quick_replies, follow_ups=[])

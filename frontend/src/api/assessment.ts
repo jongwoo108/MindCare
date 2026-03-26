@@ -15,6 +15,13 @@ export interface AssessmentResult {
   chief_complaint: string | null
 }
 
+export interface AssessmentStatus {
+  has_recent: boolean
+  days_since_last: number | null
+  last_risk_level: number | null
+  last_chief_complaint: string | null
+}
+
 export interface FollowUpRecommendation {
   type: 'phq_extended' | 'gad_extended' | 'crisis_detailed'
   reason: string
@@ -34,6 +41,9 @@ export interface FollowUpQuestion {
 }
 
 export const assessmentApi = {
+  getStatus: () =>
+    api.get<AssessmentStatus>('/users/me/assessment-status'),
+
   submit: (sessionId: string, answers: AssessmentAnswers, chief_complaint?: string) =>
     api.post<AssessmentResult>(`/sessions/${sessionId}/assessment`, {
       answers,
@@ -42,6 +52,9 @@ export const assessmentApi = {
 
   greeting: (sessionId: string) =>
     api.post<GreetingResult>(`/sessions/${sessionId}/greeting`),
+
+  returningGreeting: (sessionId: string) =>
+    api.post<GreetingResult>(`/sessions/${sessionId}/returning-greeting`),
 
   getFollowUpQuestions: (sessionId: string, type: string) =>
     api.get<{ followup_type: string; questions: FollowUpQuestion[] }>(

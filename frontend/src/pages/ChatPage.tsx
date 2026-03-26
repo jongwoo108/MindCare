@@ -38,13 +38,56 @@ export default function ChatPage() {
   // quick reply가 활성화된 메시지 id (마지막 AI 메시지에만 표시)
   const [activeQuickId, setActiveQuickId] = useState<string | null>(null)
 
+  const handleReturningGreeting = useCallback(async (sid: string) => {
+    setIsGreeting(true)
+    try {
+      const res = await assessmentApi.returningGreeting(sid)
+      const msgId = crypto.randomUUID()
+      addMessage({
+        id: msgId,
+        role: 'assistant',
+        content: res.data.content,
+        agent: 'counseling',
+        quick_replies: res.data.quick_replies,
+        timestamp: new Date(),
+      })
+      if (res.data.quick_replies?.length) setActiveQuickId(msgId)
+    } catch {
+      addMessage({
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        content: '다시 찾아주셨군요. 오늘은 어떤 이야기를 나눠볼까요?',
+        agent: 'counseling',
+        timestamp: new Date(),
+      })
+    }
+    setIsGreeting(false)
+    setShowMatchNotification(true)
+  }, [addMessage])
+
   useEffect(() => {
-    sessionsApi.create().then((res) => {
-      setSession(res.data.id)
-      setShowAssessment(true)
-    })
+    const init = async () => {
+      const sessionRes = await sessionsApi.create()
+      const sid = sessionRes.data.id
+      setSession(sid)
+
+      try {
+        const statusRes = await assessmentApi.getStatus()
+        if (statusRes.data.has_recent) {
+          // 재방문 — AI가 먼저 인사
+          handleReturningGreeting(sid)
+        } else {
+          // 첫 방문 or 30일 이상 경과 — 초기 평가
+          setShowAssessment(true)
+        }
+      } catch {
+        // 상태 조회 실패 시 안전하게 평가 모달 표시
+        setShowAssessment(true)
+      }
+    }
+    init()
     return () => reset()
-  }, [setSession, reset])
+  }, [setSession, reset, handleReturningGreeting])
 
   // 심화 검사 큐에서 다음 초대 카드를 꺼내는 헬퍼
   const advanceQueue = useCallback((queue: FollowUpRecommendation[]) => {
