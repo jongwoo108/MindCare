@@ -121,6 +121,10 @@
   - React StrictMode 이중 마운트로 AI 인사 메시지 중복 표시 → `cancelled` 플래그로 해결
   - 로딩 말풍선 색상 `theme.aiBubble` 연동
   - 의사 대시보드 `Promise.all` → `Promise.allSettled`로 부분 실패 허용
+  - Fernet 암호화 이전 평문 데이터 복호화 실패 → `InvalidToken` 시 원본 반환 (하위 호환)
+  - 환자 케이스 생성 기준 개선 — 채팅 메시지 수 단일 기준 → 평가 고위험 시 별도 경로
+    - `suicide_flag=true` / `initial_risk_level≥4` / `PHQ≥10` 이면 채팅 수 무관 생성
+    - 그 외 일반 위험도는 메시지 4개 이상 유지 (의미 있는 대화 보장)
 
 **산출물**: 의사 등록 → 환자 케이스 매칭 → 정신과 리포트 전체 흐름 동작 ✅
 

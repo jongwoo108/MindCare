@@ -39,8 +39,9 @@ def decrypt(value: str) -> str:
     try:
         return _get_fernet().decrypt(value.encode()).decode()
     except InvalidToken:
-        logger.error("decryption_failed", hint="키가 변경되었거나 데이터가 손상되었습니다.")
-        return "[복호화 오류]"
+        # 암호화 적용 이전에 저장된 평문 데이터는 그대로 반환 (하위 호환)
+        logger.warning("decryption_skipped_plaintext", hint="평문 데이터로 간주하고 원본 반환")
+        return value
 
 
 class EncryptedText(TypeDecorator):

@@ -260,8 +260,6 @@ async def _create_patient_case(
     """
     try:
         messages = await memory.get_messages(session_id)
-        if len(messages) < 4:
-            return
 
         from ..core.database import AsyncSessionFactory
         from ..models.patient_case import PatientCase
@@ -286,6 +284,15 @@ async def _create_patient_case(
                 )
             )
             ar = ar_res.scalar_one_or_none()
+
+        # 케이스 생성 기준:
+        #   - 고위험 평가(PHQ 중등도↑, 자해사고, 위험도≥4)가 있으면 채팅 내용 없어도 생성
+        #   - 그 외에는 충분한 대화(메시지 4개 이상)가 있어야 생성
+        assessment_high_risk = ar and (
+            ar.suicide_flag or ar.initial_risk_level >= 4 or ar.phq_score >= 10
+        )
+        if not assessment_high_risk and len(messages) < 4:
+            return
 
         # LLM으로 익명화 요약 + 키워드 + 추천 전문 분야 생성
         settings = get_settings()
